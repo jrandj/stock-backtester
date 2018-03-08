@@ -4,38 +4,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-
+# http://nbviewer.jupyter.org/gist/twiecki/3962843
 
 class portfolio:
     # Portfolio details
     def __init__(self):
         self.cash = 100000
-        self.shares = 0
         self.equity = []
         self.buy_and_hold = []
 
 
 def plot_price(df, p):
     # Plot stuff
+    plt.style.use('ggplot')
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax1 = fig.add_subplot(211)
     ax3 = fig.add_subplot(212)
-    ax1.plot(df[["date"]], df[["close"]], label="Close")
     ax3.plot(df[["date"]], p.equity, label="Strategy")
     ax3.plot(df[["date"]], p.buy_and_hold, "k", label="Buy and Hold")
-    ax3.legend(loc="upper right")
+
     ax.set(title=df["ticker"].iloc[0]+" closing price and volume")
     ax1.set(ylabel="price")
     ax3.set(xlabel="date", ylabel="equity")
     plt.setp(ax.get_xticklabels(), visible=False)
     plt.setp(ax.get_yticklabels(), visible=False)
-    ax1.plot(df[["date"]], df[["close_MA_50"]], label="50MA")
+    ax1.plot(df[["date"]], df[["close"]], 'b', label="Close")
+    ax1.plot(df[["date"]], df[["close_MA_50"]], 'y', label="50MA")
     ax1.plot(df[["date"]], df[["close_MA_200"]], 'k', label="200MA")
     ax1.plot(df[["date"]], df[["buy_signal"]], 'r*', label="Buy Signal")
     ax1.plot(df[["date"]], df[["sell_signal"]], 'k*', label="Sell Signal")
-    ax1.plot(df[["date"]], df[["open_position"]], 'g', label="Open Position")
+    ax3.plot(df[["date"]], df[["buy_signal"]], 'r*', label="Buy Signal")
+    ax3.plot(df[["date"]], df[["sell_signal"]], 'k*', label="Sell Signal")
+    # print(p.equity.index(df["buy_signal"].index.tolist()))
+    ax1.plot(df[["date"]], df[["open_long_position"]], 'g', label="Open Long Position")
+    ax1.plot(df[["date"]], df[["open_short_position"]], 'm', label="Open Short Position")
     ax1.legend(loc="upper right")
+    ax3.legend(loc="upper right")
     plt.show()
 
     # volume figure
@@ -116,39 +121,102 @@ def sell_signals_momentum(df):
     return df
 
 
+# def trade(df, p):
+#     # If a buy signal exists, use all portfolio cash to buy
+#     # Ignore subsequent buy signals unless a buy has been closed with a sell
+#     # If a sell signal exists, sell all shares
+#     # x% trading fee
+#     x = 0.0011
+#     open_position = 0
+#     buy_and_hold = 0
+#     initial_shares = 0
+#     initial_cash = p.cash
+#     df = df.assign(open_position=np.nan)
+#
+#     for i in range(0, df.shape[0]):
+#         if open_position:
+#             # Track portfolio performance
+#             df["open_position"].iloc[i] = df["close"].iloc[i] #slow
+#             # need to rework this for short selling as well
+#             if np.isfinite(df["sell_signal"].iloc[i]):
+#                 p.cash = (1 - x) * (p.shares * df["close"].iloc[i])
+#                 p.shares = 0
+#                 open_position = 0
+#         else:
+#             # If we have a buy signal
+#             if np.isfinite(df["buy_signal"].iloc[i]):
+#                 p.shares = (1 - x) * (p.cash / df["close"].iloc[i])
+#                 p.cash = 0
+#                 open_position = 1
+#                 if not buy_and_hold:
+#                     initial_shares = p.shares
+#                     initial_cash = 0
+#                     buy_and_hold = 1
+#         p.buy_and_hold.append(initial_shares*df["close"].iloc[i]+initial_cash)
+#         p.equity.append(p.shares*df["close"].iloc[i]+p.cash)
+#     return df, p
+
+
 def trade(df, p):
     # If a buy signal exists, use all portfolio cash to buy
     # Ignore subsequent buy signals unless a buy has been closed with a sell
     # If a sell signal exists, sell all shares
     # x% trading fee
     x = 0.0011
-    open_position = 0
-    buy_and_hold = 0
+    open_short_position = 0
+    open_long_position = 0
+
     initial_shares = 0
     initial_cash = p.cash
-    df = df.assign(open_position=np.nan)
+    shares = 0
+    buy_and_hold = 0
+    df = df.assign(open_short_position=np.nan)
+    df = df.assign(open_long_position=np.nan)
 
     for i in range(0, df.shape[0]):
-        if open_position:
-            # Track portfolio performance
-            df["open_position"].iloc[i] = df["close"].iloc[i] #slow
-            # need to rework this for short selling as well
-            if np.isfinite(df["sell_signal"].iloc[i]):
-                p.cash = (1 - x) * (p.shares * df["close"].iloc[i])
-                p.shares = 0
-                open_position = 0
+
+        # If we have a sell signal
+        if np.isfinite(df["sell_signal"].iloc[i]):
+            # If we have an open long position close it
+            if open_long_position:
+                p.cash = (1-x)*shares*((df["close"].iloc[i] - open_long_position) + open_long_position)
+                open_long_position = 0
+
+            # Open a short position
+            open_short_position = df["close"].iloc[i]
+            shares = (1-x)*(p.cash/open_short_position)
+            p.cash = 0
+
+        # If we have a buy signal
+        if np.isfinite(df["buy_signal"].iloc[i]):
+            # If we have an open short position close it
+            if open_short_position:
+                p.cash = (1 - x)*(shares*((-df["close"].iloc[i]+open_short_position)+open_short_position))
+                open_short_position = 0
+
+            if not buy_and_hold:
+                initial_shares = (1 - x) * (initial_cash / df["close"].iloc[i])
+                initial_cash = 0
+                buy_and_hold = 1
+
+            # Open a long position
+            open_long_position = df["close"].iloc[i]
+            shares = (1 - x)*(p.cash/open_long_position)
+            p.cash = 0
+
+        if open_long_position:
+            long_equity = shares*((df["close"].iloc[i] - open_long_position) + open_long_position)
+            df["open_long_position"].iloc[i] = df["close"].iloc[i]
         else:
-            # If we have a buy signal
-            if np.isfinite(df["buy_signal"].iloc[i]):
-                p.shares = (1 - x) * (p.cash / df["close"].iloc[i])
-                p.cash = 0
-                open_position = 1
-                if not buy_and_hold:
-                    initial_shares = p.shares
-                    initial_cash = 0
-                    buy_and_hold = 1
+            long_equity = 0
+        if open_short_position:
+            short_equity = shares*((-df["close"].iloc[i]+open_short_position)+open_short_position)
+            df["open_short_position"].iloc[i] = df["close"].iloc[i]
+        else:
+            short_equity = 0
+
         p.buy_and_hold.append(initial_shares*df["close"].iloc[i]+initial_cash)
-        p.equity.append(p.shares*df["close"].iloc[i]+p.cash)
+        p.equity.append(long_equity+short_equity+p.cash)
     return df, p
 
 
@@ -178,12 +246,31 @@ def load(csv_file, hdf_file, path):
 def calculate_returns(df):
     # Calculate returns using strategies and holding after buying with initial buy signal
     # Get open position price and date
-    a = df["open_position"][np.isfinite(df["open_position"])]
-    start_price = df["close"][a.index[0]]
-    end_price = df["close"][a.index[-1]]
-    b = df["date"][np.isfinite(df["open_position"])]
-    start_date = df["date"][b.index[0]]
-    end_date = df["date"][b.index[-1]]
+    # a = df["open_long_position"][np.isfinite(df["open_long_position"])]
+    # b = df["open_short_position"][np.isfinite(df["open_short_position"])]
+    # if df["close"][a.index[0]] >= df["close"][b.index[0]]:
+    #     start_price = df["close"][]
+    # else:
+    #     c = b
+    # start_price = df["close"][c.index[0]]
+    # end_price = df["close"][c.index[-1]]
+
+    date_index_long = np.isfinite(df["open_long_position"])
+    date_index_short = np.isfinite(df["open_short_position"])
+
+    if df["date"][date_index_long].index[0] >= df["date"][date_index_short].index[0]:
+        start_date = df["date"][date_index_long].iloc[0]
+        start_price = df["close"][date_index_long].iloc[0]
+    else:
+        start_date = df["date"][date_index_short].iloc[0]
+        start_price = df["close"][date_index_short].iloc[0]
+
+    if df["date"][date_index_long].index[-1] >= df["date"][date_index_short].index[-1]:
+        end_date = df["date"][date_index_long].iloc[-1]
+        end_price = df["close"][date_index_long].iloc[-1]
+    else:
+        end_date = df["date"][date_index_short].iloc[-1]
+        end_price = df["close"][date_index_short].iloc[-1]
     delta = (end_date - start_date).days
 
     # Get buy and hold prices and dates based on first buy signal and last sell signal
@@ -214,28 +301,38 @@ def prepare_data(df, ticker):
     return df
 
 
+def index_clean(df):
+    df = df.loc[df["ticker"] == "XKO"]
+    for i in range(0, df.shape[0]):
+        if len(str(df["close"][df["close"].index[i]])) < 6:
+            df["close"][df["close"].index[i]] = 100*df["close"][df["close"].index[i]]
+    return df
+
+
 def main():
     csv_file = r"\historical_data.csv"
     path = r"C:\Users\James\Desktop\Historical Data"
     hdf_file = r"\data.h5"
-    tickers = ["FLT"]
+    tickers = ["TLS"]
+    #tickers = ["FLT"]
     #tickers = ["AMP", "ANZ", "BHP", "BXB", "CBA", "CSL", "IAG", "MQG", "NAB", "QBE", "RIO", "SCG", "SUN", "TLS", "TCL",
     #           "WES", "WFD", "WBC", "WPL", "WOW"]
     historical_data = load(csv_file, hdf_file, path)
+    #historical_data = index_clean(historical_data)
     annualised_returns = []
     annualised_returns_ref = []
 
-    for i in range(0, len(tickers)):
+    for ticker in tickers:
         start = time.time()
         myportfolio = portfolio()
-        historical_data_trim = prepare_data(historical_data, tickers[i])
+        historical_data_trim = prepare_data(historical_data, ticker)
         historical_data_trim, myportfolio = trade(historical_data_trim, myportfolio)
         annualised_return, annualised_return_ref = calculate_returns(historical_data_trim)
         annualised_returns.append(annualised_return)
         annualised_returns_ref.append(annualised_return_ref)
-        print(str(tickers[i]) + " strategy annual return: " + str(annualised_return)
-              + "\n", str(tickers[i]) + " buy and hold annualised return: " +
-              str(annualised_return_ref) + "\n" + '{0:0.1f} seconds'.format(time.time() - start))
+        print(str(ticker) + " strategy annual return: " + str(annualised_return)
+             + "\n", str(ticker) + " buy and hold annualised return: " +
+             str(annualised_return_ref) + "\n" + '{0:0.1f} seconds'.format(time.time() - start))
         plot_price(historical_data_trim, myportfolio)
 
 
