@@ -3,11 +3,11 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 import csv
+from timeit import default_timer as timer
 
 
-def plot_price(df):
+def plot_price(df, buy_transactions, sell_transactions):
     # Plot prices and equity over time
     plt.style.use('ggplot')
     fig = plt.figure()
@@ -23,14 +23,14 @@ def plot_price(df):
     plt.setp(ax.get_yticklabels(), visible=False)
     ax1.plot(df[["date"]], df[["close"]], 'b', label="Close")
     ax1.plot(df[["date"]], df[["close_MA_50"]], 'y', label="50EWMA")
+    # ax1.plot(df[["date"]], df[["BB_upper"]], 'k', label="BB Upper")
+    # ax1.plot(df[["date"]], df[["BB_lower"]], 'k', label="BB Lower")
     ax1.plot(df[["date"]], df[["close_MA_200"]], 'k', label="200EWMA")
     ax1.plot(df[["date"]], df[["buy_signal"]], 'r*', label="Buy Signal")
     ax1.plot(df[["date"]], df[["sell_signal"]], 'k*', label="Sell Signal")
-    sell_dates = df["date"][df["sell_signal"].notnull()]
-    buy_dates = df["date"][df["buy_signal"].notnull()]
-    for xc in sell_dates:
+    for xc in sell_transactions:
         ax3.axvline(x=xc, color='k', linestyle='--')
-    for xc in buy_dates:
+    for xc in buy_transactions:
         ax3.axvline(x=xc, color='r', linestyle='--')
     ax1.plot(df[["date"]], df[["open_long_position"]], 'g', label="Open Long Position")
     ax1.plot(df[["date"]], df[["open_short_position"]], 'm', label="Open Short Position")
@@ -42,6 +42,8 @@ def plot_price(df):
 
 def trade(df, active_short):
     # Enter and exit positions based on buy/sell signals
+    buy_transactions = []
+    sell_transactions = []
     transaction_fee = 0.011
     open_short_position = 0
     open_long_position = 0
@@ -49,60 +51,71 @@ def trade(df, active_short):
     buy_and_hold_shares = 0
     shares = 0
     cash = 100000
+    equity = 0
     buy_and_hold_cash = 100000
-    df = df.assign(open_short_position=np.nan, open_long_position=np.nan, strategy_equity=np.nan,
-                   buy_and_hold_equity=np.nan)
+    sell_signal_array = df["sell_signal"].values
+    buy_signal_array = df["buy_signal"].values
+    close_array = df["close"].values
+    date_array = df["date"].values
+    open_long_position_array = np.empty(len(close_array))
+    open_long_position_array[:] = np.nan
+    open_short_position_array = np.empty(len(close_array))
+    open_short_position_array[:] = np.nan
+    strategy_equity_array = np.empty(len(close_array))
+    strategy_equity_array[:] = np.nan
+    buy_and_hold_equity_array = np.empty(len(close_array))
+    buy_and_hold_equity_array[:] = np.nan
 
-    for i in range(0, df.shape[0]):
+    for i in range(0, len(close_array)):
         # Enter and exit positions based on buy/sell signals
-        if np.isfinite(df["sell_signal"].iloc[i]):
+        if np.isfinite(sell_signal_array[i]):
             if open_long_position:
-                cash = (1 - transaction_fee) * shares * df["close"].iloc[i]
+                cash = (1 - transaction_fee) * shares * close_array[i]
                 open_long_position = 0
+                sell_transactions.append(date_array[i])
             if not open_short_position:
-                open_short_position = df["close"].iloc[i]
+                open_short_position = close_array[i]
                 shares = cash / open_short_position
                 cash = 0
             if not buy_and_hold:
-                buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / df["close"].iloc[i]
+                buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
                 buy_and_hold_cash = 0
                 buy_and_hold = 1
 
-        if np.isfinite(df["buy_signal"].iloc[i]):
+        if np.isfinite(buy_signal_array[i]):
             if open_short_position:
                 if active_short:
                     cash = (1 - transaction_fee) * shares * (
-                            2 * open_short_position - df["close"].iloc[i])  # start+(start-end)
+                            2 * open_short_position - close_array[i])  # start+(start-end)
                 else:
                     cash = shares * open_short_position
+                buy_transactions.append(date_array[i])
                 open_short_position = 0
             if not open_long_position:
-                open_long_position = df["close"].iloc[i]
+                open_long_position = close_array[i]
                 shares = (1 - transaction_fee) * (cash / open_long_position)
                 cash = 0
             if not buy_and_hold:
-                buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / df["close"].iloc[i]
+                buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
                 buy_and_hold_cash = 0
                 buy_and_hold = 1
 
         # Calculate equity based on position
         if open_long_position:
-            long_equity = shares * df["close"].iloc[i]
-            df.iloc[i, df.columns.get_loc("open_long_position")] = df.iloc[i, df.columns.get_loc("close")]
-        else:
-            long_equity = 0
+            equity = shares * close_array[i]
+            open_long_position_array[i] = close_array[i]
         if open_short_position:
             if active_short:
-                short_equity = shares * (2 * open_short_position - df["close"].iloc[i])
+                equity = shares * (2 * open_short_position - df["close"].iloc[i])
             else:
-                short_equity = shares * open_short_position
-            df.iloc[i, df.columns.get_loc("open_short_position")] = df.iloc[i, df.columns.get_loc("close")]
-        else:
-            short_equity = 0
-        df.iloc[i, df.columns.get_loc("strategy_equity")] = long_equity + short_equity + cash
-        df.iloc[i, df.columns.get_loc("buy_and_hold_equity")] = buy_and_hold_shares * df["close"].iloc[i] \
-            + buy_and_hold_cash
-    return df
+                equity = shares * open_short_position
+            open_short_position_array[i] = close_array[i]
+
+        strategy_equity_array[i] = equity + cash
+        buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
+
+    df = df.assign(strategy_equity=strategy_equity_array, buy_and_hold_equity=buy_and_hold_equity_array, open_short_position=open_short_position_array, open_long_position=open_long_position_array)
+    return df, buy_transactions, sell_transactions
 
 
 def calculate_returns(df):
@@ -145,10 +158,58 @@ def calculate_returns(df):
 
 
 def tech_indicators(df):
-    # Add moving averages to dataframe
-    df = df.assign(close_MA_50=df[["close"]].ewm(com=24.5).mean())
-    df = df.assign(close_MA_200=df[["close"]].ewm(com=99.5).mean())
-    df = df.assign(volume_MA_50=df[["volume"]].rolling(window=50).mean())
+    df = df.assign(close_MA_50=df[["close"]].ewm(span=50).mean())  # 24.5 = 50 day
+    df = df.assign(close_MA_200=df[["close"]].ewm(span=200).mean())  # 99.5 = 200 day
+
+    # MFI
+    typical_price = (df["high"]+df["low"]+df["close"])/3
+    money_flow = typical_price*df["volume"]
+    delta = money_flow-money_flow.shift(1)
+    delta = pd.Series([0 if np.isnan(x) else x for x in delta])
+    positive_money_flow = pd.Series([x if x > 0 else 0 for x in delta])
+    negative_money_flow = pd.Series([abs(x) if x < 0 else 0 for x in delta])
+    positive_money_flow_sum = positive_money_flow.rolling(window=14).sum().values
+    negative_money_flow_sum = negative_money_flow.rolling(window=14).sum().values
+    with np.errstate(divide='ignore', invalid='ignore'):
+        money_ratio = positive_money_flow_sum/negative_money_flow_sum
+    money_flow_index = 100 - 100/(1+money_ratio)
+    df = df.assign(MFI=money_flow_index)
+
+    # RSI
+    delta = df["close"]-df["close"].shift(1)
+    delta = pd.Series([0 if np.isnan(x) else x for x in delta])
+    up = pd.Series([x if x > 0 else 0 for x in delta])
+    down = pd.Series([abs(x) if x < 0 else 0 for x in delta])
+    with np.errstate(divide='ignore', invalid='ignore'):
+        rs = up.rolling(window=14).mean().values/down.rolling(window=14).mean().values
+    relative_strength_index = 100 - 100/(1+rs)
+    df = df.assign(RSI=relative_strength_index)
+
+    # Stochastic Oscillator (incomplete)
+    stochastic_oscillator = pd.Series((df["close"] - df["close"].rolling(window=14, center=False).min()) / (
+        df["close"].rolling(window=14, center=False).max() - df["close"].rolling(window=14, center=False).min()))
+    stochastic_oscillator = 100*stochastic_oscillator.rolling(window=3).mean()
+    df = df.assign(STO=stochastic_oscillator)
+
+    # Bolinger Bands
+    rolling_mean = df[["close"]].ewm(span=50).mean() #24.5 = 50 day
+    rolling_std = df[["close"]].ewm(span=50).std()
+    df = df.assign(BB_upper=rolling_mean + (rolling_std*2))
+    df = df.assign(BB_lower=rolling_mean - (rolling_std*2))
+
+    # OBV
+    close_array = df["close"].values
+    on_balance_volume = [0] * len(close_array)
+    for i in range(0, len(close_array)):
+        if i-1 == -1:
+            on_balance_volume[i-1] = 0
+        elif close_array[i] > close_array[i-1]:
+            on_balance_volume[i] = on_balance_volume[i-1] + df.iloc[i, df.columns.get_loc("volume")]
+        elif close_array[i] < close_array[i-1]:
+            on_balance_volume[i] = on_balance_volume[i - 1] - df.iloc[i, df.columns.get_loc("volume")]
+        else:
+            on_balance_volume[i] = on_balance_volume[i-1]
+    df = df.assign(OBV=(on_balance_volume/df["volume"]))
     return df
 
 
@@ -157,10 +218,11 @@ def buy_and_sell_signals(df):
     df = df.assign(buy_signal=np.nan, sell_signal=np.nan)
     n1 = df["close_MA_50"].shift(1)
     n2 = df["close_MA_200"].shift(1)
-    sell_signals = (df["close_MA_50"] < df["close_MA_200"]) & (n1 > n2)
-    buy_signals = (df["close_MA_50"] > df["close_MA_200"]) & (n1 < n2)
-    df = df.assign(sell_signal=df["close_MA_50"][sell_signals])
-    df = df.assign(buy_signal=df["close_MA_50"][buy_signals])
+    # OBV_high = df["OBV"].ewm(span=200).mean()
+    # OBV_low = df["OBV"].ewm(span=50).mean()
+    buy = df["close"].iloc[np.where((df["close_MA_50"] > df["close_MA_200"]) & (n1 < n2))]
+    sell = df["close"].iloc[np.where((df["close_MA_50"] < df["close_MA_200"]) & (n1 > n2))]
+    df = df.assign(sell_signal=sell, buy_signal=buy)
     return df
 
 
@@ -184,11 +246,11 @@ def import_data(csv_file, hdf_file, path):
         def dateparse(x):
             return pd.datetime.strptime(x, "%Y%m%d")
 
-        df = (pd.read_csv(f, names=["date", "open", "close", "volume", "ticker"], parse_dates=["date"],
+        df = (pd.read_csv(f, names=["date", "open", "high", "low", "close", "volume", "ticker"], parse_dates=["date"],
                           dtype={"ticker": str}, date_parser=dateparse, skiprows=1) for f in all_files)
         df = pd.concat(df, ignore_index=True)
         df.to_csv(os.path.join(path, r"data.csv"), sep=",",
-                  header=["date", "open", "close", "volume", "ticker"])
+                  header=["date", "open", "high", "low", "close", "volume", "ticker"])
         df.to_hdf(path + hdf_file, 'table', append=True)
     return df
 
@@ -228,46 +290,73 @@ def print_results(ticker, transactions, annualised_return, annualised_return_ref
           str(ticker) + " end date: " + str(end_date) + "\n" +
           str(ticker) + " end date reference: " + str(end_date_ref) + "\n" +
           str(ticker) + " buy and hold annualised return: " + str(annualised_return_ref) + "\n" +
-          "Elapsed Time: " + '{0:0.1f} seconds'.format(time.time() - start))
+          "Elapsed Time: " + '{0:0.1f} seconds'.format(timer() - start))
     return
 
 
 def main():
     csv_file = r"\data.csv"
-    path = r"C:\Users\James\Desktop\Historical Data\Converted Data\Equities"
+    path = r"C:\Users\James\Desktop\Historical Data\ASX\Equities"
     hdf_file = r"\data.h5"
-    tickers = ["ABP", "ABC", "AGL", "ALQ", "ALU", "AWC", "AMC", "AMP", "ANN", "ANZ", "APA", "APO", "ARB", "AAD", "ALL",
-               "AHY", "ASX", "AZJ", "ASL", "AST", "API", "AHG", "AOG", "BOQ", "BAP", "BPT", "BGA", "BAL", "BEN", "BHP",
-               "BKL", "BSL", "BLD", "BXB", "BRG", "BKW", "BTT", "BWP", "CTX", "CAR", "CGF", "CHC", "CQR", "CNU", "CLW",
-               "CIM", "CWY", "CCL", "COH", "CBA", "CPU", "CTD", "CGC", "CCP", "CMW", "CWN", "CSL", "CSR", "CYB", "DXS",
-               "DHG", "DMP", "DOW", "DLX", "ECX", "EHE", "EVN", "FXJ", "FPH", "FBU", "FLT", "FMG", "GUD", "GEM", "GXY",
-               "GTY", "GMA", "GMG", "GPT", "GNC", "GXL", "GOZ", "GWA", "HVN", "HSO", "ILU", "IPL", "IGO", "IFN", "IAG",
-               "IOF", "IVC", "IFL", "IPH", "IRE", "INM", "JHX", "JHG", "JBH", "LLC", "A2M", "LNK", "LYC", "MFG", "MGR",
-               "MIN", "MMS", "MND", "MPL", "MQA", "MQG", "MTR", "MTS", "MYO", "MYX", "NAB", "NAN", "NCM", "NEC", "NHF",
-               "NSR", "NST", "NUF", "NVT", "NWS", "NXT", "OML", "ORA", "ORE", "ORG", "ORI", "OSH", "OZL", "PGH", "PLS",
-               "PMV", "PPT", "PRY", "PTM", "QAN", "QBE", "QUB", "REA", "RFG", "RHC", "RIO", "RMD", "RRL", "RSG", "RWC",
-               "S32", "SAR", "SBM", "SCG", "SCP", "SDA", "SDF", "SEK", "SFR", "SGM", "SGP", "SGR", "SHL", "SIG", "SIQ",
-               "SKC", "SKI", "SOL", "SPK", "SRX", "STO", "SUL", "SUN", "SVW", "SWM", "SXL", "SYD", "SYR", "TAH", "TCL",
-               "TGR", "TLS", "TME", "TNE", "TPM", "TWE", "VCX", "VOC", "VVR", "WBC", "WEB", "WES", "WFD", "WHC", "WOR",
-               "WOW", "WPL", "WSA", "WTC", "XRO"]
+    tickers = ["CBA"]
+    # all ords 2018
+    # tickers = ['3PL', 'A2M', 'AAC', 'AAD', 'ABA', 'ABC', 'ABP', 'ADA', 'ADH', 'AFG', 'AGG', 'AGI', 'AGL', 'AGO', 'AGY',
+    #            'AHG', 'AHY', 'AIA', 'AJD', 'AJL', 'AJM', 'AKP', 'ALK', 'ALL', 'ALQ', 'ALU', 'AMA', 'AMC', 'AMI', 'AMP',
+    #            'ANN', 'ANZ', 'AOF', 'AOG', 'APA', 'APE', 'API', 'APO', 'APT', 'APX', 'AQG', 'AQZ', 'ARB', 'ARF', 'ARV',
+    #            'ASB', 'ASG', 'ASL', 'AST', 'ASX', 'ATL', 'ATS', 'AUB', 'AUZ', 'AVB', 'AVJ', 'AVN', 'AVZ', 'AWC', 'AX1',
+    #            'AXP', 'AYS', 'AZJ', 'BAL', 'BAP', 'BBN', 'BDR', 'BEN', 'BFG', 'BGA', 'BHP', 'BIN', 'BKL', 'BKW', 'BKY',
+    #            'BLA', 'BLD', 'BLX', 'BLY', 'BNO', 'BOQ', 'BPT', 'BRG', 'BRL', 'BRN', 'BSA', 'BSE', 'BSL', 'BUB', 'BUL',
+    #            'BVS', 'BWP', 'BWX', 'BXB', 'CAB', 'CAJ', 'CAN', 'CAR', 'CAT', 'CBA', 'CCL', 'CCP', 'CCV', 'CDA', 'CDD',
+    #            'CDP', 'CDV', 'CEN', 'CGC', 'CGF', 'CGL', 'CHC', 'CIA', 'CII', 'CIM', 'CIP', 'CKF', 'CL1', 'CLH', 'CLQ',
+    #            'CLW', 'CMA', 'CMW', 'CNI', 'CNU', 'COE', 'COH', 'CPU', 'CQR', 'CRD', 'CRR', 'CSL', 'CSR', 'CTD', 'CTX',
+    #            'CUV', 'CVC', 'CVW', 'CWN', 'CWP', 'CWY', 'CYB', 'CZZ', 'DCG', 'DCN', 'DDR', 'DFM', 'DHG', 'DLX', 'DMP',
+    #            'DNA', 'DNK', 'DOW', 'DTL', 'DWS', 'DXS', 'ECX', 'EDE', 'EHE', 'EHL', 'ELD', 'EML', 'ENN', 'EOS', 'EPW',
+    #            'EQT', 'ERA', 'ERF', 'ESV', 'EVN', 'EVT', 'EWC', 'EXP', 'EZL', 'FAR', 'FBR', 'FBU', 'FDM', 'FET', 'FID',
+    #            'FLC', 'FLK', 'FLN', 'FLT', 'FMG', 'FMS', 'FNP', 'FPH', 'FRI', 'FSA', 'FWD', 'FXJ', 'FXL', 'GCS', 'GCY',
+    #            'GDF', 'GDI', 'GEM', 'GMA', 'GMG', 'GNC', 'GNG', 'GOR', 'GOW', 'GOZ', 'GPT', 'GRR', 'GSC', 'GSW', 'GTN',
+    #            'GTY', 'GUD', 'GWA', 'GXL', 'GXY', 'HAS', 'HFR', 'HLO', 'HOM', 'HPI', 'HRR', 'HSN', 'HSO', 'HT1', 'HTA',
+    #            'HUB', 'HUO', 'HVN', 'IAG', 'IDR', 'IDX', 'IEL', 'IFL', 'IFM', 'IFN', 'IGL', 'IGO', 'ILU', 'IMD', 'IMF',
+    #            'INA', 'ING', 'INM', 'IOF', 'IPD', 'IPH', 'IPL', 'IRE', 'IRI', 'ISD', 'ISU', 'IVC', 'JBH', 'JHC', 'JHG',
+    #            'JHX', 'JIN', 'JLG', 'KAR', 'KDR', 'KGN', 'KMD', 'KSC', 'LEP', 'LIC', 'LLC', 'LNG', 'LNK', 'LOV', 'LVH',
+    #            'LYC', 'LYL', 'MAH', 'MAQ', 'MDC', 'MDL', 'MFG', 'MGR', 'MGX', 'MHJ', 'MIN', 'MLB', 'MLD', 'MLX', 'MMI',
+    #            'MMS', 'MND', 'MNF', 'MNS', 'MNY', 'MOC', 'MOE', 'MP1', 'MPL', 'MQA', 'MQG', 'MRM', 'MRN', 'MSB', 'MTO',
+    #            'MTR', 'MTS', 'MVF', 'MVP', 'MWY', 'MYO', 'MYR', 'MYS', 'MYX', 'NAB', 'NAN', 'NBL', 'NCK', 'NCM', 'NCZ',
+    #            'NEA', 'NEC', 'NEU', 'NEW', 'NGI', 'NHC', 'NHF', 'NMT', 'NSR', 'NST', 'NTC', 'NUF', 'NVL', 'NVT', 'NWH',
+    #            'NWL', 'NWS', 'NXT', 'NZM', 'OCL', 'OFX', 'OGC', 'OMH', 'OML', 'ONT', 'ORA', 'ORE', 'ORG', 'ORI', 'OSH',
+    #            'OVH', 'OZL', 'PAC', 'PAN', 'PCG', 'PDL', 'PEA', 'PEAR', 'PFP', 'PGC', 'PGH', 'PHI', 'PLG', 'PLS', 'PME',
+    #            'PMP', 'PMV', 'PNC', 'PNI', 'PNR', 'PNV', 'PPC', 'PPG', 'PPH', 'PPS', 'PPT', 'PRU', 'PRY', 'PSI', 'PSQ',
+    #            'PTM', 'PWH', 'QAN', 'QBE', 'QIP', 'QMS', 'QUB', 'RBL', 'RCR', 'REA', 'REG', 'REH', 'REX', 'RFF', 'RFG',
+    #            'RHC', 'RHL', 'RIC', 'RIO', 'RKN', 'RMD', 'RMS', 'RND', 'RRL', 'RSG', 'RUL', 'RVA', 'RWC', 'S32', 'SAR',
+    #            'SBM', 'SCG', 'SCO', 'SCP', 'SDA', 'SDF', 'SDG', 'SEH', 'SEK', 'SFR', 'SGF', 'SGH', 'SGM', 'SGP', 'SGR',
+    #            'SHL', 'SHV', 'SIG', 'SIQ', 'SIV', 'SKC', 'SKI', 'SKT', 'SLC', 'SLK', 'SLR', 'SOL', 'SOM', 'SPK', 'SPL',
+    #            'SRV', 'SRX', 'SSM', 'SST', 'STO', 'SUL', 'SUN', 'SVW', 'SWM', 'SXE', 'SXL', 'SXY', 'SYD', 'SYR', 'TAH',
+    #            'TAW', 'TBR', 'TCL', 'TGP', 'TGR', 'TLS', 'TME', 'TNE', 'TOX', 'TPE', 'TPM', 'TRT', 'TTM', 'TWE', 'TZN',
+    #            'UOS', 'UPD', 'URF', 'VAH', 'VCX', 'VLA', 'VLW', 'VOC', 'VRL', 'VRT', 'VTG', 'VVR', 'WAF', 'WBA', 'WBC',
+    #            'WEB', 'WES', 'WFD', 'WGN', 'WGX', 'WHC', 'WLL', 'WOR', 'WOW', 'WPL', 'WPP', 'WSA', 'WTC', 'XAM', 'XRO',
+    #            'YAL', 'YOJ', 'Z1P', 'ZEL', 'ZIM']
     active_short = 0
+    first = timer()
     historical_data = import_data(csv_file, hdf_file, path)
+    #tickers = historical_data["ticker"].unique().tolist()
+    load = timer()
+    print("import time: " + '{0:0.1f} seconds'.format(load - first))
 
     for ticker in tickers:
-        print("Current Ticker: ", ticker)
-        start = time.time()
-        historical_data_trim = historical_data.loc[historical_data["ticker"] == ticker]
+        mask = np.in1d(historical_data['ticker'].values, [ticker])
+        historical_data_trim = historical_data[mask]
         historical_data_trim = tech_indicators(historical_data_trim)
         historical_data_trim = buy_and_sell_signals(historical_data_trim)
-        historical_data_trim = trade(historical_data_trim, active_short)
+        historical_data_trim, buy_transactions, sell_transactions = trade(historical_data_trim, active_short)
+        transactions = len(buy_transactions) + len(sell_transactions)
         annualised_return, annualised_return_ref, start_price, start_price_ref, end_price, end_price_ref, \
             start_date, start_date_ref, end_date, end_date_ref = calculate_returns(historical_data_trim)
-        transactions = historical_data_trim["buy_signal"].count() + historical_data_trim["sell_signal"].count()
-        print_results(ticker, transactions, annualised_return, annualised_return_ref, start_price, start_price_ref,
-            end_price, end_price_ref, start_date, start_date_ref, end_date, end_date_ref, start)
-        results_to_csv(path, ticker, annualised_return, transactions, start_price, start_price_ref, end_price,
-                       end_price_ref, annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref)
-        #plot_price(historical_data_trim)
+        # print_results(ticker, transactions, annualised_return, annualised_return_ref, start_price, start_price_ref,
+        #     end_price, end_price_ref, start_date, start_date_ref, end_date, end_date_ref, first)
+        #results_to_csv(path, ticker, annualised_return, transactions, start_price, start_price_ref, end_price,
+        #                end_price_ref, annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref)
+        plot_price(historical_data_trim, buy_transactions, sell_transactions)
 
+    complete = timer()
+    print("Final time: " + '{0:0.1f} seconds'.format(complete - load))
 
 main()
