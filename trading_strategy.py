@@ -13,22 +13,30 @@ def plot_price(df, buy_transactions, sell_transactions):
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
     ax2 = fig.add_subplot(312)
+    ax3 = fig.add_subplot(313)
     ax1.set(xlabel="date", ylabel="price")
-    ax2.set(xlabel="date", ylabel="equity")
+    ax2.set(xlabel="date", ylabel="volume")
+    ax3.set(xlabel="date", ylabel="equity")
     ax1.plot(df[["date"]], df[["open_long_position"]], 'g', label="Open Long Position")
     ax1.plot(df[["date"]], df[["open_short_position"]], 'm', label="Open Short Position")
-    ax1.plot(df[["date"]], df[["close_MA_50"]], 'y', label="50EWMA")
-    ax1.plot(df[["date"]], df[["close_MA_200"]], 'k', label="200EWMA")
+    # ax1.plot(df[["date"]], df[["close_MA_50"]], 'y', label="50EWMA")
+    # ax1.plot(df[["date"]], df[["close_MA_200"]], 'k', label="200EWMA")
     ax1.plot(df[["date"]], df[["buy_signal"]], 'r*', label="Buy Signal")
     ax1.plot(df[["date"]], df[["sell_signal"]], 'k*', label="Sell Signal")
-    ax2.plot(df[["date"]], df[["strategy_equity"]], label="Strategy")
-    ax2.plot(df[["date"]], df[["buy_and_hold_equity"]], "k", label="Buy and Hold")
+    ax1.plot(df[["date"]], df[["close"]], 'k', label="Price")
+    # ax1.plot(df[["date"]].iloc[np.where(df["price_change"])], df[["close"]].iloc[np.where(df["price_change"])], 'co', markersize=1, label="Price Change <5%")
+    ax2.plot(df[["date"]], df[["volume"]], 'k', label="Volume")
+    ax2.plot(df[["date"]].iloc[np.where(df["volume_change_buy"])], df[["close"]].iloc[np.where(df["volume_change_buy"])], 'co',
+             markersize=1, label="Volume Change >10x")
+    ax3.plot(df[["date"]], df[["strategy_equity"]], label="Strategy")
+    ax3.plot(df[["date"]], df[["buy_and_hold_equity"]], "k", label="Buy and Hold")
     for xc in sell_transactions:
-        ax2.axvline(x=xc, color='k', linestyle='--')
+        ax3.axvline(x=xc, color='k', linestyle='--')
     for xc in buy_transactions:
-        ax2.axvline(x=xc, color='r', linestyle='--')
-    ax1.legend(loc="upper left", prop={'size':5})
-    ax2.legend(loc="upper left", prop={'size':5})
+        ax3.axvline(x=xc, color='r', linestyle='--')
+    ax1.legend(loc="upper left", prop={'size': 5})
+    ax2.legend(loc="upper left", prop={'size': 5})
+    ax3.legend(loc="upper left", prop={'size': 5})
     plt.show()
     return df
 
@@ -100,7 +108,8 @@ def trade(df):
         strategy_equity_array[i] = equity + cash
         buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
 
-    df = df.assign(strategy_equity=strategy_equity_array, buy_and_hold_equity=buy_and_hold_equity_array, open_short_position=open_short_position_array, open_long_position=open_long_position_array)
+    df = df.assign(strategy_equity=strategy_equity_array, buy_and_hold_equity=buy_and_hold_equity_array,
+                   open_short_position=open_short_position_array, open_long_position=open_long_position_array)
     return df, buy_transactions, sell_transactions
 
 
@@ -140,49 +149,51 @@ def calculate_returns(df):
     annualised_return = 100 * (((end_price / start_price) ** (365 / delta)) - 1)
     annualised_return_ref = 100 * (((end_price_ref / start_price_ref) ** (365 / delta)) - 1)
     return annualised_return, annualised_return_ref, start_price, start_price_ref, end_price, end_price_ref, \
-        start_date, start_date, end_date, end_date
+           start_date, start_date, end_date, end_date
 
 
 def tech_indicators(df):
     df = df.assign(close_MA_50=df[["close"]].ewm(span=50).mean())
     df = df.assign(close_MA_200=df[["close"]].ewm(span=200).mean())
+    df = df.assign(volume_MA_20=df[["volume"]].rolling(20).mean())
+    df = df.assign(price_change_buy=df['close'].pct_change().between(0, 0.05))
+    df = df.assign(volume_change_buy=(df["volume"] > 8 * df["volume_MA_20"]))
 
     # MFI
-    typical_price = (df["high"]+df["low"]+df["close"])/3
-    money_flow = typical_price*df["volume"]
-    delta = money_flow-money_flow.shift(1)
+    typical_price = (df["high"] + df["low"] + df["close"]) / 3
+    money_flow = typical_price * df["volume"]
+    delta = money_flow - money_flow.shift(1)
     delta = pd.Series([0 if np.isnan(x) else x for x in delta])
     positive_money_flow = pd.Series([x if x > 0 else 0 for x in delta])
     negative_money_flow = pd.Series([abs(x) if x < 0 else 0 for x in delta])
     positive_money_flow_sum = positive_money_flow.rolling(window=14).sum().values
     negative_money_flow_sum = negative_money_flow.rolling(window=14).sum().values
     with np.errstate(divide='ignore', invalid='ignore'):
-        money_ratio = positive_money_flow_sum/negative_money_flow_sum
-    money_flow_index = 100 - 100/(1+money_ratio)
+        money_ratio = positive_money_flow_sum / negative_money_flow_sum
+    money_flow_index = 100 - 100 / (1 + money_ratio)
     df = df.assign(MFI=money_flow_index)
 
     # RSI
-    delta = df["close"]-df["close"].shift(1)
+    delta = df["close"] - df["close"].shift(1)
     delta = pd.Series([0 if np.isnan(x) else x for x in delta])
     up = pd.Series([x if x > 0 else 0 for x in delta])
     down = pd.Series([abs(x) if x < 0 else 0 for x in delta])
     with np.errstate(divide='ignore', invalid='ignore'):
-        rs = up.rolling(window=14).mean().values/down.rolling(window=14).mean().values
-    relative_strength_index = 100 - 100/(1+rs)
+        rs = up.rolling(window=14).mean().values / down.rolling(window=14).mean().values
+    relative_strength_index = 100 - 100 / (1 + rs)
     df = df.assign(RSI=relative_strength_index)
 
     # Stochastic Oscillator
     stochastic_oscillator = pd.Series((df["close"] - df["close"].rolling(window=14, center=False).min()) / (
-        df["close"].rolling(window=14, center=False).max() - df["close"].rolling(window=14, center=False).min()))
-    stochastic_oscillator = 100*stochastic_oscillator.rolling(window=3).mean()
+            df["close"].rolling(window=14, center=False).max() - df["close"].rolling(window=14, center=False).min()))
+    stochastic_oscillator = 100 * stochastic_oscillator.rolling(window=3).mean()
     df = df.assign(STO=stochastic_oscillator)
 
     # Bolinger Bands
     rolling_mean = df[["close"]].ewm(span=50).mean()
     rolling_std = df[["close"]].ewm(span=50).std()
-    df = df.assign(BB_upper=rolling_mean + (rolling_std*2))
-    df = df.assign(BB_lower=rolling_mean - (rolling_std*2))
-
+    df = df.assign(BB_upper=rolling_mean + (rolling_std * 2))
+    df = df.assign(BB_lower=rolling_mean - (rolling_std * 2))
     return df
 
 
@@ -191,8 +202,9 @@ def buy_and_sell_signals(df):
     df = df.assign(buy_signal=np.nan, sell_signal=np.nan)
     n1 = df["close_MA_50"].shift(1)
     n2 = df["close_MA_200"].shift(1)
-    buy = df["close"].iloc[np.where((df["close_MA_50"] > df["close_MA_200"]) & (n1 < n2))]
-    sell = df["close"].iloc[np.where((df["close_MA_50"] < df["close_MA_200"]) & (n1 > n2))]
+    buy = df["close"].iloc[np.where(df["volume_change_buy"] & df["price_change_buy"])]
+    # sell = df["close"].iloc[np.where(df["close_MA_50"] < 50000000000*df["close_MA_200"])]
+    sell = pd.Series({df["close"].index[-1]: df["close"].iloc[-1]})  # dummy sell series with sell at end
     df = df.assign(sell_signal=sell, buy_signal=buy)
     return df
 
@@ -258,10 +270,10 @@ def print_results(ticker, transactions, annualised_return, annualised_return_ref
 
 def main():
     csv_file = r"\data.csv"
-    path = r"C:\Users\James\Desktop\Trading Project\Historical Data\ASX\Equities"
+    path = r"C:\Users\James\Desktop\Backups\Trading Project\Historical Data\ASX\Equities"
     write_results = 0
     hdf_file = r"\data.h5"
-    tickers = ["CBA"]
+    tickers = ["NOR"]
     first = timer()
     historical_data = import_data(csv_file, hdf_file, path)
     load = timer()
@@ -275,12 +287,12 @@ def main():
         historical_data_trim, buy_transactions, sell_transactions = trade(historical_data_trim)
         transactions = len(buy_transactions) + len(sell_transactions)
         annualised_return, annualised_return_ref, start_price, start_price_ref, end_price, end_price_ref, \
-            start_date, start_date_ref, end_date, end_date_ref = calculate_returns(historical_data_trim)
+        start_date, start_date_ref, end_date, end_date_ref = calculate_returns(historical_data_trim)
         print_results(ticker, transactions, annualised_return, annualised_return_ref)
 
         if write_results:
             results_to_csv(path, ticker, annualised_return, transactions, start_price, start_price_ref, end_price,
-                end_price_ref, annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref)
+                           end_price_ref, annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref)
         else:
             plot_price(historical_data_trim, buy_transactions, sell_transactions)
 
