@@ -1,3 +1,4 @@
+import datetime
 import os
 import glob
 import pandas as pd
@@ -5,40 +6,58 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 from timeit import default_timer as timer
+from matplotlib.dates import num2date, date2num
+from mpl_finance import candlestick2_ohlc, candlestick_ochl
 
 
-def plot_price(df, buy_transactions, sell_transactions):
-    # Plot prices and equity over time
-    plt.style.use('ggplot')
+def plot_price(df):
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
     ax2 = fig.add_subplot(312)
     ax3 = fig.add_subplot(313)
-    ax1.set(xlabel="date", ylabel="price")
-    ax2.set(xlabel="date", ylabel="volume")
-    ax3.set(xlabel="date", ylabel="equity")
-    ax1.plot(df[["date"]], df[["open_long_position"]], 'g', label="Open Long Position")
-    ax1.plot(df[["date"]], df[["open_short_position"]], 'm', label="Open Short Position")
-    # ax1.plot(df[["date"]], df[["close_MA_50"]], 'y', label="50EWMA")
-    # ax1.plot(df[["date"]], df[["close_MA_200"]], 'k', label="200EWMA")
-    ax1.plot(df[["date"]], df[["buy_signal"]], 'r*', label="Buy Signal")
-    ax1.plot(df[["date"]], df[["sell_signal"]], 'k*', label="Sell Signal")
-    ax1.plot(df[["date"]], df[["close"]], 'k', label="Price")
-    # ax1.plot(df[["date"]].iloc[np.where(df["price_change"])], df[["close"]].iloc[np.where(df["price_change"])], 'co', markersize=1, label="Price Change <5%")
-    ax2.plot(df[["date"]], df[["volume"]], 'k', label="Volume")
-    ax2.plot(df[["date"]].iloc[np.where(df["volume_change_buy"])], df[["close"]].iloc[np.where(df["volume_change_buy"])], 'co',
-             markersize=1, label="Volume Change >10x")
-    ax3.plot(df[["date"]], df[["strategy_equity"]], label="Strategy")
-    ax3.plot(df[["date"]], df[["buy_and_hold_equity"]], "k", label="Buy and Hold")
-    for xc in sell_transactions:
-        ax3.axvline(x=xc, color='k', linestyle='--')
-    for xc in buy_transactions:
-        ax3.axvline(x=xc, color='r', linestyle='--')
-    ax1.legend(loc="upper left", prop={'size': 5})
-    ax2.legend(loc="upper left", prop={'size': 5})
-    ax3.legend(loc="upper left", prop={'size': 5})
+
+    # Create synthetic date list to smooth out the gaps in trading days (weekends etc.)
+    smoothdate = date2num(df["date"])
+    for i in range(len(smoothdate) - 1):
+        smoothdate[i + 1] = int(smoothdate[i]) + 1
+
+    # Create candlestick chart
+    candlesticks = zip(smoothdate, df["open"], df["close"], df["high"], df["low"], df["volume"])
+    candlestick_ochl(ax1, candlesticks, width=1, colorup='g', colordown='r')
+    ax1.plot(smoothdate, df["close_MA_50"], "k-", label="Close 50D MA", linewidth=0.5)
+
+    # Add buy and sell signals
+    ax1.plot(smoothdate, df["buy_signal"], 'b*', label="Buy Signal")
+    ax1.plot(smoothdate, df["sell_signal"], 'k*', label="Sell Signal")
+
+    # Create volume bar chart
+    pos = df["open"] - df["close"] < 0
+    neg = df["open"] - df["close"] > 0
+    ax2.bar(smoothdate[pos], df["volume"][pos], color="green", width=1, align="center")
+    ax2.bar(smoothdate[neg], df["volume"][neg], color="red", width=1, align="center")
+    ax2.plot(smoothdate, df["volume_MA_20"], "k-", label="Volume 20D MA", linewidth=0.5)
+
+    # Add equity chart
+    ax3.plot(smoothdate, df["strategy_equity"], "b", label="Strategy")
+    ax3.plot(smoothdate, df["buy_and_hold_equity"], "k", label="Buy and Hold")
+
+    # Use smoothed dates for the xticks but the real dates for the tick labels (otherwise the charts appear shrunk)
+    actualdate = date2num(df["date"])
+    xticks = np.linspace(smoothdate[0], smoothdate[-1], 10)
+    xticklabels = pd.date_range(start=num2date(actualdate[0]), end=num2date(actualdate[-1]), periods=10)
+    ax1.set_xticks(xticks)
+    ax2.set_xticks(xticks)
+    ax3.set_xticks(xticks)
+    xtick_labels = [datetime.date.isoformat(d) for d in xticklabels]
+    ax1.legend(loc="upper left", prop={"size": 5})
+    ax2.legend(loc="upper left", prop={"size": 5})
+    ax3.legend(loc="upper left", prop={"size": 5})
+    ax1.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
+    ax2.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
+    ax3.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
+    plt.tight_layout()
     plt.show()
-    return df
+    return
 
 
 def trade(df):
@@ -294,7 +313,7 @@ def main():
             results_to_csv(path, ticker, annualised_return, transactions, start_price, start_price_ref, end_price,
                            end_price_ref, annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref)
         else:
-            plot_price(historical_data_trim, buy_transactions, sell_transactions)
+            plot_price(historical_data_trim)
 
     complete = timer()
     print("Runtime: " + '{0:0.1f} seconds'.format(complete - load))
