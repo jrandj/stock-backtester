@@ -12,7 +12,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install ASX200-
     ```
 2. Activate virtual environment
     ```bash
-    venv/Scripts/activate.bat
+    "venv/Scripts/activate.bat"
     ```
 3. Install dependencies
     ```bash
