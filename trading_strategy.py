@@ -7,7 +7,7 @@ import numpy as np
 import csv
 from timeit import default_timer as timer
 from matplotlib.dates import num2date, date2num
-from mpl_finance import candlestick2_ohlc, candlestick_ochl
+from mpl_finance import candlestick_ochl
 
 
 def plot_price(df):
@@ -221,10 +221,15 @@ def buy_and_sell_signals(df):
     df = df.assign(buy_signal=np.nan, sell_signal=np.nan)
     n1 = df["close_MA_50"].shift(1)
     n2 = df["close_MA_200"].shift(1)
-    buy = df["close"].iloc[np.where(df["volume_change_buy"] & df["price_change_buy"])]
-    # sell = df["close"].iloc[np.where(df["close_MA_50"] < 50000000000*df["close_MA_200"])]
-    sell = pd.Series({df["close"].index[-1]: df["close"].iloc[-1]})  # dummy sell series with sell at end
-    df = df.assign(sell_signal=sell, buy_signal=buy)
+    buy_prices = df["close"].iloc[np.where(df["volume_change_buy"] & df["price_change_buy"])]
+    buy_dates = df["date"].iloc[np.where(df["volume_change_buy"] & df["price_change_buy"])]
+
+    i = 0
+    for row in df.itertuples():
+        if i < len(buy_prices) and getattr(row, "close") > 1.5*buy_prices.iloc[i] and getattr(row, "date") > buy_dates.iloc[i]:
+            df.set_value(getattr(row, "Index"), "sell_signal", getattr(row, "close"))
+            i = i + 1
+    df = df.assign(buy_signal=buy_prices)
     return df
 
 
