@@ -229,7 +229,7 @@ def buy_and_sell_signals(df):
     for row in df.itertuples():
         if i < len(buy_prices) and getattr(row, "close") > 1.5 * buy_prices.iloc[i] and getattr(row, "date") > \
                 buy_dates.iloc[i]:
-            df.set_value(getattr(row, "Index"), "sell_signal", getattr(row, "close"))
+            df["sell_signal"].at[getattr(row, "Index")] = getattr(row, "close")
             i = i + 1
     df = df.assign(buy_signal=buy_prices)
     return df
