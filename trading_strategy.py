@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import glob
 import pandas as pd
@@ -226,7 +227,8 @@ def buy_and_sell_signals(df):
 
     i = 0
     for row in df.itertuples():
-        if i < len(buy_prices) and getattr(row, "close") > 1.5*buy_prices.iloc[i] and getattr(row, "date") > buy_dates.iloc[i]:
+        if i < len(buy_prices) and getattr(row, "close") > 1.5 * buy_prices.iloc[i] and getattr(row, "date") > \
+                buy_dates.iloc[i]:
             df.set_value(getattr(row, "Index"), "sell_signal", getattr(row, "close"))
             i = i + 1
     df = df.assign(buy_signal=buy_prices)
@@ -293,6 +295,7 @@ def print_results(ticker, transactions, annualised_return, annualised_return_ref
 
 
 def main():
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.WARNING)
     csv_file = r"\data.csv"
     path = r"C:\Users\James\Desktop\Backups\Trading Project\Historical Data\ASX\Equities"
     write_results = 0
@@ -306,6 +309,9 @@ def main():
     for ticker in tickers:
         mask = np.in1d(historical_data['ticker'].values, [ticker])
         historical_data_trim = historical_data[mask]
+        if len(historical_data_trim) == 0:
+            logging.warning("Ticker " + ticker + " not in historical data.")
+            continue
         historical_data_trim = tech_indicators(historical_data_trim)
         historical_data_trim = buy_and_sell_signals(historical_data_trim)
         historical_data_trim, buy_transactions, sell_transactions = trade(historical_data_trim)
