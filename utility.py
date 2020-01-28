@@ -8,6 +8,36 @@ from matplotlib.dates import num2date, date2num
 from mpl_finance import candlestick_ochl
 
 
+def import_data(csv_file, hdf_file, path):
+    # Import from hdf file if available
+    # Else import from csv file and create hdf file
+    # Else create CSV file and hd5 file
+    print(csv_file, hdf_file, path)
+
+    if os.path.isfile(path + hdf_file):
+        df = pd.read_hdf(path + hdf_file, 'table')
+    elif os.path.isfile(path + csv_file):
+
+        def dateparse(x):
+            return pd.datetime.strptime(x, "%Y-%m-%d")
+
+        df = pd.read_csv(path + csv_file, header=0, index_col=0, parse_dates=["date"],
+                         date_parser=dateparse)
+        df.to_hdf(path + hdf_file, 'table', append=True)
+    else:
+        all_files = glob.glob(os.path.join(path, "*.csv"))
+
+        def dateparse(x):
+            return pd.datetime.strptime(x, "%Y%m%d")
+
+        df = (pd.read_csv(f, names=["date", "open", "high", "low", "close", "volume", "ticker"], parse_dates=["date"],
+                          dtype={"ticker": str}, date_parser=dateparse, skiprows=1) for f in all_files)
+        df = pd.concat(df, ignore_index=True)
+        df.to_csv(os.path.join(path, r"data.csv"), sep=",",
+                  header=["date", "open", "high", "low", "close", "volume", "ticker"])
+        df.to_hdf(path + hdf_file, 'table', append=True)
+    return df
+
 def plot_price(df):
     fig = plt.figure()
     ax1 = fig.add_subplot(311)
