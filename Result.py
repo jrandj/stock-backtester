@@ -10,7 +10,7 @@ class Result:
         self.buy_and_sell_signals()
         self.buy_transactions, self.sell_transactions = self.trade()
         self.transactions = len(self.buy_transactions + self.sell_transactions)
-        self.annualised_return, self.annualised_return_ref, self.start_price, self.start_price_ref, self.end_price, self.end_price_ref, self.start_date, self.start_date, self.end_date = self.calculate_returns()
+        self.annualised_return, self.annualised_return_ref, self.start_price, self.start_price_ref, self.end_price, self.end_price_ref, self.start_date, self.end_date = self.calculate_returns()
         self.print_results()
 
     def tech_indicators(self):
@@ -158,7 +158,7 @@ class Result:
         a = self.data["date"][date_index_long]
         b = self.data["date"][date_index_short]
         if a.empty or b.empty:
-            return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            return 0, 0, 0, 0, 0, 0, 0, 0
 
         # Short position held first
         if a.index[0] > b.index[0]:
@@ -184,8 +184,7 @@ class Result:
         delta = (end_date - start_date).days
         annualised_return = 100 * (((end_price / start_price) ** (365 / delta)) - 1)
         annualised_return_ref = 100 * (((end_price_ref / start_price_ref) ** (365 / delta)) - 1)
-        return annualised_return, annualised_return_ref, start_price, start_price_ref, end_price, end_price_ref, \
-               start_date, start_date, end_date
+        return annualised_return, annualised_return_ref, start_price, start_price_ref, end_price, end_price_ref, start_date, end_date
 
     def print_results(self):
         print(str(self.ticker) + " strategy annual return: " + str(self.annualised_return) + "\n" +
