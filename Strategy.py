@@ -1,6 +1,6 @@
 class Strategy:
-    def __init__(self):
-        self.required_profit = 1.5
-        self.required_pct_change_min = 0
-        self.required_pct_change_max = 0.05
-        self.required_volume = 8
+    def __init__(self, required_profit, required_pct_change_min, required_pct_change_max, required_volume):
+        self.required_profit = required_profit
+        self.required_pct_change_min = required_pct_change_min
+        self.required_pct_change_max = required_pct_change_max
+        self.required_volume = required_volume

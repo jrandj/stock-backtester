@@ -22,7 +22,7 @@ def main():
             logging.warning("Ticker " + ticker + " not in historical data.")
             continue
 
-        strategy = Strategy()
+        strategy = Strategy(1.5, 0, 0.05, 5)
         result = Result(ticker, strategy, historical_data_trim)
 
         if config.write_results:
