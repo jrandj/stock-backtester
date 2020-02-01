@@ -1,4 +1,5 @@
 import datetime
+import glob
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -38,11 +39,12 @@ def import_data(csv_file, hdf_file, path):
         df.to_hdf(path + hdf_file, 'table', append=True)
     return df
 
-def plot_price(df):
+
+def plot_price(df, ticker):
     fig = plt.figure()
-    ax1 = fig.add_subplot(311)
-    ax2 = fig.add_subplot(312)
-    ax3 = fig.add_subplot(313)
+    ax1 = fig.add_subplot(211)
+    ax2 = ax1.twinx()
+    ax3 = fig.add_subplot(212)
 
     # Create synthetic date list to smooth out the gaps in trading days (weekends etc.)
     smoothdate = date2num(df["date"])
@@ -55,15 +57,15 @@ def plot_price(df):
     ax1.plot(smoothdate, df["close_MA_50"], "k-", label="Close 50D MA", linewidth=0.5)
 
     # Add buy and sell signals
-    ax1.plot(smoothdate, df["buy_signal"], 'b*', label="Buy Signal")
-    ax1.plot(smoothdate, df["sell_signal"], 'k*', label="Sell Signal")
+    ax1.plot(smoothdate, df["buy_signal"], 'g*', label="Buy Signal")
+    ax1.plot(smoothdate, df["sell_signal"], 'r*', label="Sell Signal")
 
     # Create volume bar chart
     pos = df["open"] - df["close"] < 0
     neg = df["open"] - df["close"] > 0
     ax2.bar(smoothdate[pos], df["volume"][pos], color="green", width=1, align="center")
     ax2.bar(smoothdate[neg], df["volume"][neg], color="red", width=1, align="center")
-    ax2.plot(smoothdate, df["volume_MA_20"], "k-", label="Volume 20D MA", linewidth=0.5)
+    ax2.plot(smoothdate, df["volume_MA_20"], "b-", label="Volume 20D MA", linewidth=0.5)
 
     # Add equity chart
     ax3.plot(smoothdate, df["strategy_equity"], "b", label="Strategy")
@@ -77,12 +79,15 @@ def plot_price(df):
     ax2.set_xticks(xticks)
     ax3.set_xticks(xticks)
     xtick_labels = [datetime.date.isoformat(d) for d in xticklabels]
+
+    ax1.set_ylabel("Close")
+    ax3.set_ylabel("Equity")
     ax1.legend(loc="upper left", prop={"size": 5})
-    ax2.legend(loc="upper left", prop={"size": 5})
+    ax2.legend(loc="upper right", prop={"size": 5})
     ax3.legend(loc="upper left", prop={"size": 5})
     ax1.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
-    ax2.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
     ax3.set_xticklabels(xtick_labels, rotation=45, horizontalalignment="right", fontsize=6)
+    ax1.title.set_text(ticker)
     plt.tight_layout()
     plt.show()
     return
