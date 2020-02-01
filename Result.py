@@ -3,9 +3,10 @@ import numpy as np
 
 
 class Result:
-    def __init__(self, ticker, raw_data):
+    def __init__(self, ticker, strategy, raw_data):
         self.ticker = ticker
         self.data = raw_data
+        self.strategy = strategy
         self.tech_indicators()
         self.buy_and_sell_signals()
         self.buy_transactions, self.sell_transactions = self.trade()
@@ -17,8 +18,11 @@ class Result:
         self.data = self.data.assign(close_MA_50=self.data[["close"]].ewm(span=50).mean())
         self.data = self.data.assign(close_MA_200=self.data[["close"]].ewm(span=200).mean())
         self.data = self.data.assign(volume_MA_20=self.data[["volume"]].rolling(20).mean())
-        self.data = self.data.assign(price_change_buy=self.data['close'].pct_change().between(0, 0.05))
-        self.data = self.data.assign(volume_change_buy=(self.data["volume"] > 8 * self.data["volume_MA_20"]))
+        self.data = self.data.assign(
+            price_change_buy=self.data['close'].pct_change().between(self.strategy.required_pct_change_min,
+                                                                     self.strategy.required_pct_change_max))
+        self.data = self.data.assign(
+            volume_change_buy=(self.data["volume"] > self.strategy.required_volume * self.data["volume_MA_20"]))
 
         # MFI
         typical_price = (self.data["high"] + self.data["low"] + self.data["close"]) / 3
@@ -69,7 +73,8 @@ class Result:
 
         i = 0
         for row in self.data.itertuples():
-            if i < len(buy_prices) and getattr(row, "close") > 1.5 * buy_prices.iloc[i] and getattr(row, "date") > \
+            if i < len(buy_prices) and getattr(row, "close") > self.strategy.required_profit * buy_prices.iloc[
+                i] and getattr(row, "date") > \
                     buy_dates.iloc[i]:
                 self.data["sell_signal"].at[getattr(row, "Index")] = getattr(row, "close")
                 i = i + 1
