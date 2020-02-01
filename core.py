@@ -30,7 +30,7 @@ def main():
                                    result.start_date_ref,
                                    result.end_date, result.end_date_ref)
         else:
-            utility.plot_price(result.data)
+            utility.plot_price(result.data, ticker)
 
     complete = timer()
     print("Runtime: " + '{0:0.1f} seconds'.format(complete - load))
