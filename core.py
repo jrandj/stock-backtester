@@ -4,6 +4,7 @@ from timeit import default_timer as timer
 import config
 import utility
 from Result import Result
+from Strategy import Strategy
 
 
 def main():
@@ -21,7 +22,9 @@ def main():
             logging.warning("Ticker " + ticker + " not in historical data.")
             continue
 
-        result = Result(ticker, historical_data_trim)
+        strategy = Strategy()
+        result = Result(ticker, strategy, historical_data_trim)
+
         if config.write_results:
             utility.results_to_csv(config.path, ticker, result.annualised_return, result.transactions,
                                    result.start_price,
