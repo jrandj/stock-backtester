@@ -93,17 +93,20 @@ def plot_price(df, ticker):
     return
 
 
-def results_to_csv(path, ticker, annualised_return, transactions, start_price, start_price_ref, end_price,
-                   end_price_ref,
-                   annualised_return_ref, start_date, start_date_ref, end_date, end_date_ref):
+def results_to_csv(path, result):
     # Save results to .csv
-    results = [ticker, annualised_return, transactions, start_price, end_price, start_date, end_date,
-               annualised_return_ref,
-               start_price_ref, end_price_ref, start_date_ref, end_date_ref]
-    schema = ["Ticker", "Strategy Annual Return", "Strategy Transactions", "Strategy Starting Equity",
-              "Strategy Finishing Equity",
-              "Strategy Start Date", "Strategy End Date", "Buy&Hold Annual Return", "Buy&Hold Starting Equity",
-              "Buy&Hold Finishing Equity", "Buy&Hold Start Date", "Buy&Hold End Date"]
+    results = [result.ticker, result.Performance.annualised_return,
+               [pd.to_datetime(i).strftime("%Y-%m-%d") for i in result.data["buy_signal_date"].tolist() if
+                not pd.isna(i)], result.buy_transactions,
+               pd.to_datetime(result.Performance.start_date).strftime("%Y-%m-%d"), result.Performance.start_price,
+               [pd.to_datetime(i).strftime("%Y-%m-%d") for i in result.data["sell_signal_date"].tolist() if
+                not pd.isna(i)], result.sell_transactions,
+               pd.to_datetime(result.Performance.end_date).strftime("%Y-%m-%d"), result.Performance.end_price,
+               result.Performance.annualised_return_ref]
+    schema = ["Ticker", "Annual Return", "Buy Signals",
+              "Buy Transactions",
+              "Position Start Date", "Position Equity Start", "Sell Signals", "Sell Transactions", "Position End Date",
+              "Position Equity End", "Buy and Hold Annual Return"]
     file_exists = os.path.isfile(path + r" Performance.csv")
     with open(path + r" Performance.csv", "a", newline='') as csv_file:
         wr = csv.writer(csv_file)
