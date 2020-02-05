@@ -53,7 +53,7 @@ def plot_price(df, ticker):
 
     # Create candlestick chart
     candlesticks = zip(smoothdate, df["open"], df["close"], df["high"], df["low"], df["volume"])
-    candlestick_ochl(ax1, candlesticks, width=1, colorup='g', colordown='r')
+    candlestick_ochl(ax1, candlesticks, width=1, colorup='b', colordown='m')
     ax1.plot(smoothdate, df["close_MA_50"], "k-", label="Close 50D MA", linewidth=0.5)
 
     # Add buy and sell signals
