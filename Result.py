@@ -75,10 +75,9 @@ class Result:
         i = 0
         for row in self.data.itertuples():
             if i < len(buy_prices) and getattr(row, "close") > self.strategy.required_profit * buy_prices.iloc[
-                i] and getattr(row, "date") > \
-                    buy_dates.iloc[i]:
-                self.data["sell_signal"].at[getattr(row, "Index")] = getattr(row, "close")
-                self.data["sell_signal_date"].at[getattr(row, "Index")] = getattr(row, "date")
+                i] and getattr(row, "date") > buy_dates.iloc[i]:
+                self.data.at[getattr(row, "Index"), "sell_signal"] = getattr(row, "close")
+                self.data.at[getattr(row, "Index"), "sell_signal_date"] = getattr(row, "date")
                 i = i + 1
         self.data = self.data.assign(buy_signal=buy_prices)
         self.data = self.data.assign(buy_signal_date=buy_dates)
