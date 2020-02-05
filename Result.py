@@ -88,14 +88,11 @@ class Result:
         buy_transactions = []
         sell_transactions = []
         transaction_fee = 0.011
-        # Remove handling of short selling for now
-        # open_short_position = 0
         open_long_position = 0
         buy_and_hold = 0
         buy_and_hold_shares = 0
         shares = 0
         cash = 100000
-        # equity = 0
         buy_and_hold_cash = 100000
         sell_signal_array = self.data["sell_signal"].values
         buy_signal_array = self.data["buy_signal"].values
@@ -103,8 +100,6 @@ class Result:
         date_array = self.data["date"].values
         open_long_position_array = np.empty(len(close_array))
         open_long_position_array[:] = np.nan
-        open_short_position_array = np.empty(len(close_array))
-        open_short_position_array[:] = np.nan
         strategy_equity_array = np.empty(len(close_array))
         strategy_equity_array[:] = np.nan
         buy_and_hold_equity_array = np.empty(len(close_array))
@@ -118,21 +113,8 @@ class Result:
                     shares = 0
                     open_long_position = 0
                     sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
-                # if not open_short_position:
-                #     open_short_position = close_array[i]
-                #     shares = cash / open_short_position
-                #     sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
-                #     cash = 0
-                # if not buy_and_hold:
-                #     buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
-                #     buy_and_hold_cash = 0
-                #     buy_and_hold = 1
 
             if np.isfinite(buy_signal_array[i]):
-                # if open_short_position:
-                #     cash = shares * open_short_position
-                #     buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
-                #     open_short_position = 0
                 if not open_long_position:
                     open_long_position = close_array[i]
                     shares = (1 - transaction_fee) * (cash / open_long_position)
@@ -148,64 +130,30 @@ class Result:
             # Record when we held an open long position
             if open_long_position:
                 open_long_position_array[i] = close_array[i]
-            # if open_short_position:
-            #     equity = shares * open_short_position
-            #     open_short_position_array[i] = close_array[i]
 
             strategy_equity_array[i] = equity + cash
             buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
 
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
                                      buy_and_hold_equity=buy_and_hold_equity_array,
-                                     open_short_position=open_short_position_array,
-                                     open_long_position=open_long_position_array, )
+                                     open_long_position=open_long_position_array)
         return buy_transactions, sell_transactions
 
     def calculate_returns(self):
         # Calculate returns using strategies and buy and hold
         date_index_long = np.isfinite(self.data["open_long_position"])
-        date_index_short = np.isfinite(self.data["open_short_position"])
-        a = self.data["date"][date_index_long]
-        b = self.data["date"][date_index_short]
-        if a.empty and b.empty:
+
+        # Handle case where there is no long position
+        if self.data["date"][date_index_long].empty:
             performance = Performance(0, 0, 0, 0, 0, 0)
             return performance
-
-        # Handle cases where there are no long or short positions
-        if a.empty:
-            start_date = b.iloc[0]
-            start_price = self.data["strategy_equity"][date_index_short].iloc[0]
-            start_price_ref = self.data["buy_and_hold_equity"][date_index_short].iloc[0]
-            end_date = b.iloc[-1]
-            end_price = self.data["strategy_equity"][date_index_short].iloc[-1]
-            end_price_ref = self.data["buy_and_hold_equity"][date_index_short].iloc[-1]
-        elif b.empty:
-            start_date = a.iloc[0]
+        else:
+            start_date = self.data["date"][date_index_long].iloc[0]
             start_price = self.data["strategy_equity"][date_index_long].iloc[0]
             start_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[0]
-            end_date = a.iloc[-1]
+            end_date = self.data["date"][date_index_long].iloc[-1]
             end_price = self.data["strategy_equity"][date_index_long].iloc[-1]
             end_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[-1]
-
-        # Short position held first
-        elif a.index[0] > b.index[0]:
-            start_date = b.iloc[0]
-            start_price = self.data["strategy_equity"][date_index_short].iloc[0]
-            start_price_ref = self.data["buy_and_hold_equity"][date_index_short].iloc[0]
-        elif a.index[0] < b.index[0]:
-            start_date = a.iloc[0]
-            start_price = self.data["strategy_equity"][date_index_long].iloc[0]
-            start_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[0]
-
-        # Long position held last
-        elif a.index[-1] > b.index[-1]:
-            end_date = a.iloc[-1]
-            end_price = self.data["strategy_equity"][date_index_long].iloc[-1]
-            end_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[-1]
-        elif a.index[-1] > b.index[-1]:
-            end_date = b.iloc[-1]
-            end_price = self.data["strategy_equity"][date_index_short].iloc[-1]
-            end_price_ref = self.data["buy_and_hold_equity"][date_index_short].iloc[-1]
 
         # Compute annualised returns
         delta = (end_date - start_date).days
