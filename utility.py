@@ -102,11 +102,14 @@ def results_to_csv(path, result):
                [pd.to_datetime(i).strftime("%Y-%m-%d") for i in result.data["sell_signal_date"].tolist() if
                 not pd.isna(i)], result.sell_transactions,
                pd.to_datetime(result.Performance.end_date).strftime("%Y-%m-%d"), result.Performance.end_price,
-               result.Performance.annualised_return_ref]
+               result.Performance.annualised_return_ref, result.strategy.required_profit,
+               result.strategy.required_volume, result.strategy.required_pct_change_min,
+               result.strategy.required_pct_change_max]
     schema = ["Ticker", "Annual Return", "Buy Signals",
               "Buy Transactions",
               "Position Start Date", "Position Equity Start", "Sell Signals", "Sell Transactions", "Position End Date",
-              "Position Equity End", "Buy and Hold Annual Return"]
+              "Position Equity End", "Buy and Hold Annual Return", "Required Profit", "Required Volume",
+              "Required % Change Min", "Required % Change Max"]
     file_exists = os.path.isfile(path + r" Performance.csv")
     with open(path + r" Performance.csv", "a", newline='') as csv_file:
         wr = csv.writer(csv_file)
