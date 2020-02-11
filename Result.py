@@ -63,28 +63,21 @@ class Result:
         self.data = self.data.assign(BB_lower=rolling_mean - (rolling_std * 2))
         return
 
+    # Calculate buy and sell signals where they can be vectorised
+    # Complex sell signal requires iterating through the data which is done in trade
     def buy_and_sell_signals(self):
-        # Calculate buy and sell signals based on moving average crossover
         self.data = self.data.assign(buy_signal=np.nan, sell_signal=np.nan, buy_signal_date=np.nan,
                                      sell_signal_date=np.nan)
         # n1 = self.data["close_MA_50"].shift(1)
         # n2 = self.data["close_MA_200"].shift(1)
         buy_prices = self.data["close"].iloc[np.where(self.data["volume_change_buy"] & self.data["price_change_buy"])]
         buy_dates = self.data["date"].iloc[np.where(self.data["volume_change_buy"] & self.data["price_change_buy"])]
-
-        i = 0
-        for row in self.data.itertuples():
-            if i < len(buy_prices) and getattr(row, "close") > self.strategy.required_profit * buy_prices.iloc[
-                i] and getattr(row, "date") > buy_dates.iloc[i]:
-                self.data.at[getattr(row, "Index"), "sell_signal"] = getattr(row, "close")
-                self.data.at[getattr(row, "Index"), "sell_signal_date"] = getattr(row, "date")
-                i = i + 1
         self.data = self.data.assign(buy_signal=buy_prices)
         self.data = self.data.assign(buy_signal_date=buy_dates)
         return
 
+    # Enter and exit positions based on buy/sell signals
     def trade(self):
-        # Enter and exit positions based on buy/sell signals
         buy_transactions = []
         sell_transactions = []
         transaction_fee = 0.011
@@ -94,8 +87,8 @@ class Result:
         shares = 0
         cash = 100000
         buy_and_hold_cash = 100000
-        sell_signal_array = self.data["sell_signal"].values
         buy_signal_array = self.data["buy_signal"].values
+        buy_signal_array_dates = self.data["buy_signal_date"].values
         close_array = self.data["close"].values
         date_array = self.data["date"].values
         open_long_position_array = np.empty(len(close_array))
@@ -105,14 +98,28 @@ class Result:
         buy_and_hold_equity_array = np.empty(len(close_array))
         buy_and_hold_equity_array[:] = np.nan
 
+        # Create buy signal and buy signal dates without NaN or NaT
+        # NaN and NaT inclusive arrays required for plots etc.
+        buy_signal_array_nonan = buy_signal_array[~np.isnan(buy_signal_array)]
+        buy_signal_array_dates_nonat = buy_signal_array_dates[~np.isnat(buy_signal_array_dates)]
+
+        j = 0
         for i in range(0, len(close_array)):
             # Enter and exit positions based on buy/sell signals
-            if np.isfinite(sell_signal_array[i]):
-                if open_long_position:
+            if open_long_position:
+                # Record when we held an open long position
+                open_long_position_array[i] = close_array[i]
+
+                if(close_array[i] > self.strategy.required_profit * buy_signal_array_nonan[
+                j] and date_array[i] > buy_signal_array_dates_nonat[j]):
+                    j = j + 1
                     cash = (1 - transaction_fee) * shares * close_array[i]
                     shares = 0
                     open_long_position = 0
                     sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
+                    # Need to offset the index which is based on the original dataframe with all tickers
+                    self.data.at[self.data.index[0]+i, "sell_signal"] = close_array[i]
+                    self.data.at[self.data.index[0]+i, "sell_signal_date"] = close_array[i]
 
             if np.isfinite(buy_signal_array[i]):
                 if not open_long_position:
@@ -127,10 +134,6 @@ class Result:
 
             # Calculate equity based on position
             equity = shares * close_array[i]
-            # Record when we held an open long position
-            if open_long_position:
-                open_long_position_array[i] = close_array[i]
-
             strategy_equity_array[i] = equity + cash
             buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
 
