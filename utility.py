@@ -13,7 +13,7 @@ def import_data(csv_file, hdf_file, path):
     # Import from hdf file if available
     # Else import from csv file and create hdf file
     # Else create CSV file and hd5 file
-    print(csv_file, hdf_file, path)
+    # print(csv_file, hdf_file, path)
 
     if os.path.isfile(path + hdf_file):
         df = pd.read_hdf(path + hdf_file, 'table')
@@ -95,21 +95,24 @@ def plot_price(df, ticker):
 
 def results_to_csv(path, result):
     # Save results to .csv
-    results = [result.ticker, result.Performance.annualised_return,
-               [pd.to_datetime(i).strftime("%Y-%m-%d") for i in result.data["buy_signal_date"].tolist() if
+    results = [result.ticker, result.Performance.gain, result.Performance.gain_ref,
+               result.Performance.annualised_return,
+               [pd.to_datetime(i).strftime("%d-%m-%Y") for i in result.data["buy_signal_date"].tolist() if
                 not pd.isna(i)], result.buy_transactions,
-               pd.to_datetime(result.Performance.start_date).strftime("%Y-%m-%d"), result.Performance.start_price,
-               [pd.to_datetime(i).strftime("%Y-%m-%d") for i in result.data["sell_signal_date"].tolist() if
+               pd.to_datetime(result.Performance.start_date).strftime("%d-%m-%Y"), result.Performance.start_price,
+               [pd.to_datetime(i).strftime("%d-%m-%Y") for i in result.data["sell_signal_date"].tolist() if
                 not pd.isna(i)], result.sell_transactions,
-               pd.to_datetime(result.Performance.end_date).strftime("%Y-%m-%d"), result.Performance.end_price,
+               pd.to_datetime(result.Performance.end_date).strftime("%d-%m-%Y"), result.Performance.end_price,
                result.Performance.annualised_return_ref, result.strategy.required_profit,
                result.strategy.required_volume, result.strategy.required_pct_change_min,
-               result.strategy.required_pct_change_max]
-    schema = ["Ticker", "Annual Return", "Buy Signals",
+               result.strategy.required_pct_change_max, "Strategy(" + str(result.strategy.required_profit) + ", " + str(
+            result.strategy.required_pct_change_min) + ", " + str(result.strategy.required_pct_change_max) + ", " + str(
+            result.strategy.required_volume) + ")"]
+    schema = ["Ticker", "Strategy Gain", "Buy and Hold Gain", "Annual Return", "Buy Signals",
               "Buy Transactions",
               "Position Start Date", "Position Equity Start", "Sell Signals", "Sell Transactions", "Position End Date",
               "Position Equity End", "Buy and Hold Annual Return", "Required Profit", "Required Volume",
-              "Required % Change Min", "Required % Change Max"]
+              "Required % Change Min", "Required % Change Max", "Strategy"]
     file_exists = os.path.isfile(path + r" Performance.csv")
     with open(path + r" Performance.csv", "a", newline='') as csv_file:
         wr = csv.writer(csv_file)

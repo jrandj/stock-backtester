@@ -10,6 +10,8 @@ from Strategy import Strategy
 def main():
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.WARNING)
     tickers = ["NOR"]
+    # tickers = ["BRN", "NOR", "SAS", "KRR", "RAP", "ZYB", "UNL", "BOT", "SPT", "CGB", "MTC", "88E", "NHL", "SVA", "AC8",
+    #            "AJM", "G88", "AVZ", "4CE", "MCT", "BAR", "IMU", "VOR", "BIT", "BD1", "CLA", "SCU"]
     first = timer()
     historical_data = utility.import_data(config.csv_file, config.hdf_file, config.path)
     load = timer()
@@ -22,7 +24,7 @@ def main():
     #         for k in np.arange(3, 8, 1):
     #             strategies.append(Strategy(i, 0, j, k))
 
-    strategies.append(Strategy(2.1, 0, 0, 7.7))
+    strategies.append(Strategy(4.1, 0, 0.02, 4))
     i = 0
     strategy_count = len(strategies)
 
@@ -34,7 +36,9 @@ def main():
             continue
 
         for strategy in strategies:
-            print("Strategy: " + str(i) + " of total strategies: " + str(strategy_count))
+            print("Strategy(" + str(strategy.required_profit) + ", " + str(strategy.required_pct_change_min) + ", " +
+                  str(strategy.required_pct_change_max) + ", " + str(strategy.required_volume) + ")" + " "
+                  + str(i) + " of " + str(strategy_count) + " of total strategies")
             i = i + 1
             result = Result(ticker, strategy, historical_data_trim)
             if config.write_results:

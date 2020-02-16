@@ -91,6 +91,8 @@ class Result:
         buy_signal_array_dates = self.data["buy_signal_date"].values
         close_array = self.data["close"].values
         date_array = self.data["date"].values
+        buy_and_hold_position_array = np.empty(len(close_array))
+        buy_and_hold_position_array[:] = np.nan
         open_long_position_array = np.empty(len(close_array))
         open_long_position_array[:] = np.nan
         strategy_equity_array = np.empty(len(close_array))
@@ -105,32 +107,39 @@ class Result:
 
         j = 0
         for i in range(0, len(close_array)):
-            # Enter and exit positions based on buy/sell signals
-            if open_long_position:
-                # Record when we held an open long position
-                open_long_position_array[i] = close_array[i]
-
-                if(close_array[i] > self.strategy.required_profit * buy_signal_array_nonan[
-                j] and date_array[i] > buy_signal_array_dates_nonat[j]):
-                    j = j + 1
-                    cash = (1 - transaction_fee) * shares * close_array[i]
-                    shares = 0
-                    open_long_position = 0
-                    sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
-                    # Need to offset the index which is based on the original dataframe with all tickers
-                    self.data.at[self.data.index[0]+i, "sell_signal"] = close_array[i]
-                    self.data.at[self.data.index[0]+i, "sell_signal_date"] = close_array[i]
-
+            # Handle buy
             if np.isfinite(buy_signal_array[i]):
                 if not open_long_position:
                     open_long_position = close_array[i]
                     shares = (1 - transaction_fee) * (cash / open_long_position)
-                    buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%Y-%m-%d"))
+                    buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
                     cash = 0
                 if not buy_and_hold:
                     buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
                     buy_and_hold_cash = 0
                     buy_and_hold = 1
+
+            # Handle sell
+            elif (j < len(buy_signal_array_nonan) and date_array[i] > buy_signal_array_dates_nonat[j] and close_array[
+                i] > self.strategy.required_profit *
+                  buy_signal_array_nonan[j]):
+                # Need to offset the index which is based on the original dataframe with all tickers
+                self.data.at[self.data.index[0] + i, "sell_signal"] = close_array[i]
+                self.data.at[self.data.index[0] + i, "sell_signal_date"] = date_array[i]
+                if open_long_position:
+                    j = j + 1
+                    cash = (1 - transaction_fee) * shares * close_array[i]
+                    shares = 0
+                    open_long_position = 0
+                    sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
+
+            if open_long_position:
+                # Record when we held an open long position
+                open_long_position_array[i] = close_array[i]
+
+            if buy_and_hold:
+                # Record when our buy and hold position
+                buy_and_hold_position_array[i] = close_array[i]
 
             # Calculate equity based on position
             equity = shares * close_array[i]
@@ -139,59 +148,72 @@ class Result:
 
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
                                      buy_and_hold_equity=buy_and_hold_equity_array,
-                                     open_long_position=open_long_position_array)
+                                     open_long_position=open_long_position_array,
+                                     buy_and_hold_position=buy_and_hold_position_array)
         return buy_transactions, sell_transactions
 
     def calculate_returns(self):
         # Calculate returns using strategies and buy and hold
         date_index_long = np.isfinite(self.data["open_long_position"])
+        date_index_buy_and_hold = np.isfinite(self.data["buy_and_hold_position"])
 
         # Handle case where there is no long position
         if self.data["date"][date_index_long].empty:
-            performance = Performance(0, 0, 0, 0, 0, 0)
+            performance = Performance(0, 0, 0, 0, 0, 0, 0, 0)
             return performance
         else:
             start_date = self.data["date"][date_index_long].iloc[0]
+            start_date_ref = self.data["date"][date_index_buy_and_hold].iloc[0]
             start_price = self.data["strategy_equity"][date_index_long].iloc[0]
-            start_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[0]
+            start_price_ref = self.data["buy_and_hold_equity"][date_index_buy_and_hold].iloc[0]
             end_date = self.data["date"][date_index_long].iloc[-1]
+            end_date_ref = self.data["date"][date_index_buy_and_hold].iloc[-1]
             end_price = self.data["strategy_equity"][date_index_long].iloc[-1]
-            end_price_ref = self.data["buy_and_hold_equity"][date_index_long].iloc[-1]
+            end_price_ref = self.data["buy_and_hold_equity"][date_index_buy_and_hold].iloc[-1]
 
         # Compute annualised returns
-        delta = (end_date - start_date).days
+        delta = 1 + (end_date - start_date).days
+        delta_ref = 1 + (end_date_ref - start_date_ref).days
         annualised_return = 100 * (((end_price / start_price) ** (365 / delta)) - 1)
-        annualised_return_ref = 100 * (((end_price_ref / start_price_ref) ** (365 / delta)) - 1)
+        annualised_return_ref = 100 * (((end_price_ref / start_price_ref) ** (365 / delta_ref)) - 1)
+        gain = end_price / start_price
+        gain_ref = end_price_ref / start_price_ref
         performance = Performance(annualised_return, annualised_return_ref, start_price, start_date, end_price,
-                                  end_date)
+                                  end_date, gain, gain_ref)
         return performance
 
     def print_results(self):
         print(str(self.ticker) + " Strategy Annual Return: " + str(self.Performance.annualised_return) + "%" + "\n" +
               str(self.ticker) + " Buy Signals: " + str(
-            [pd.to_datetime(i).strftime("%Y-%m-%d") for i in self.data["buy_signal_date"].tolist() if
+            [pd.to_datetime(i).strftime("%d-%m-%Y") for i in self.data["buy_signal_date"].tolist() if
              not pd.isna(i)]) + "\n" +
               str(self.ticker) + " Buy Transactions: " + str(self.buy_transactions) + "\n" +
               str(self.ticker) + " Position Start Date: " + str(
-            pd.to_datetime(self.Performance.start_date).strftime("%Y-%m-%d")) + "\n" +
+            pd.to_datetime(self.Performance.start_date).strftime("%d-%m-%Y")) + "\n" +
               str(self.ticker) + " Position Equity Start: " + str(self.Performance.start_price) + "\n" +
               str(self.ticker) + " Sell Signals: " + str(
-            [pd.to_datetime(i).strftime("%Y-%m-%d") for i in self.data["sell_signal_date"].tolist() if
+            [pd.to_datetime(i).strftime("%d-%m-%Y") for i in self.data["sell_signal_date"].tolist() if
              not pd.isna(i)]) + "\n" +
               str(self.ticker) + " Sell Transactions: " + str(self.sell_transactions) + "\n" +
               str(self.ticker) + " Position End Date: " + str(
-            pd.to_datetime(self.Performance.end_date).strftime("%Y-%m-%d")) + "\n" +
+            pd.to_datetime(self.Performance.end_date).strftime("%d-%m-%Y")) + "\n" +
               str(self.ticker) + " Position Equity End: " + str(self.Performance.end_price) + "\n" +
-              str(self.ticker) + " Buy and Hold Annual Return: " + str(self.Performance.annualised_return_ref) + "%")
+              str(self.ticker) + " Buy and Hold Annual Return: " + str(
+            self.Performance.annualised_return_ref) + "%" + "\n" +
+              str(self.ticker) + " Strategy Gain: " + str(self.Performance.gain) + "\n" +
+              str(self.ticker) + " Buy and Hold Gain: " + str(self.Performance.gain))
         return
 
 
 class Performance:
-    def __init__(self, annualised_return, annualised_return_ref, start_price, start_date, end_price, end_date):
+    def __init__(self, annualised_return, annualised_return_ref, start_price, start_date, end_price, end_date, gain,
+                 gain_ref):
         self.annualised_return = annualised_return
         self.annualised_return_ref = annualised_return_ref
         self.start_price = start_price
         self.start_date = start_date
         self.end_price = end_price
         self.end_date = end_date
+        self.gain = gain
+        self.gain_ref = gain_ref
         return
