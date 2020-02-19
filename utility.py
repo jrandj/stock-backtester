@@ -98,10 +98,10 @@ def results_to_csv(path, result):
     results = [result.ticker, result.Performance.gain, result.Performance.gain_ref,
                result.Performance.annualised_return,
                [pd.to_datetime(i).strftime("%d-%m-%Y") for i in result.data["buy_signal_date"].tolist() if
-                not pd.isna(i)], result.buy_transactions,
+                not pd.isna(i)], result.buy_transactions, result.buy_transaction_equity,
                pd.to_datetime(result.Performance.start_date).strftime("%d-%m-%Y"), result.Performance.start_price,
                [pd.to_datetime(i).strftime("%d-%m-%Y") for i in result.data["sell_signal_date"].tolist() if
-                not pd.isna(i)], result.sell_transactions,
+                not pd.isna(i)], result.sell_transactions, result.sell_transaction_equity,
                pd.to_datetime(result.Performance.end_date).strftime("%d-%m-%Y"), result.Performance.end_price,
                result.Performance.annualised_return_ref, result.strategy.required_profit,
                result.strategy.required_volume, result.strategy.required_pct_change_min,
@@ -109,8 +109,9 @@ def results_to_csv(path, result):
             result.strategy.required_pct_change_min) + ", " + str(result.strategy.required_pct_change_max) + ", " + str(
             result.strategy.required_volume) + ")"]
     schema = ["Ticker", "Strategy Gain", "Buy and Hold Gain", "Annual Return", "Buy Signals",
-              "Buy Transactions",
-              "Position Start Date", "Position Equity Start", "Sell Signals", "Sell Transactions", "Position End Date",
+              "Buy Transactions", "Buy Transaction Equity",
+              "Position Start Date", "Position Equity Start", "Sell Signals", "Sell Transactions",
+              "Sell Transaction Equity", "Position End Date",
               "Position Equity End", "Buy and Hold Annual Return", "Required Profit", "Required Volume",
               "Required % Change Min", "Required % Change Max", "Strategy"]
     file_exists = os.path.isfile(path + r" Performance.csv")

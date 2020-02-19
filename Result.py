@@ -9,7 +9,7 @@ class Result:
         self.strategy = strategy
         self.tech_indicators()
         self.buy_and_sell_signals()
-        self.buy_transactions, self.sell_transactions = self.trade()
+        self.buy_transactions, self.sell_transactions, self.buy_transaction_equity, self.sell_transaction_equity = self.trade()
         self.Performance = self.calculate_returns()
         self.transactions = len(self.buy_transactions + self.sell_transactions)
         self.print_results()
@@ -79,7 +79,9 @@ class Result:
     # Enter and exit positions based on buy/sell signals
     def trade(self):
         buy_transactions = []
+        buy_transaction_equity = []
         sell_transactions = []
+        sell_transaction_equity = []
         transaction_fee = 0.011
         open_long_position = 0
         buy_and_hold = 0
@@ -112,8 +114,9 @@ class Result:
                 if not open_long_position:
                     open_long_position = close_array[i]
                     shares = (1 - transaction_fee) * (cash / open_long_position)
-                    buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
                     cash = 0
+                    buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
+                    buy_transaction_equity.append(round(shares * close_array[i] + cash, 2))
                 if not buy_and_hold:
                     buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
                     buy_and_hold_cash = 0
@@ -132,6 +135,7 @@ class Result:
                     shares = 0
                     open_long_position = 0
                     sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
+                    sell_transaction_equity.append(round(shares * close_array[i] + cash, 2))
 
             if open_long_position:
                 # Record when we held an open long position
@@ -150,7 +154,7 @@ class Result:
                                      buy_and_hold_equity=buy_and_hold_equity_array,
                                      open_long_position=open_long_position_array,
                                      buy_and_hold_position=buy_and_hold_position_array)
-        return buy_transactions, sell_transactions
+        return buy_transactions, sell_transactions, buy_transaction_equity, sell_transaction_equity
 
     def calculate_returns(self):
         # Calculate returns using strategies and buy and hold
@@ -188,6 +192,7 @@ class Result:
             [pd.to_datetime(i).strftime("%d-%m-%Y") for i in self.data["buy_signal_date"].tolist() if
              not pd.isna(i)]) + "\n" +
               str(self.ticker) + " Buy Transactions: " + str(self.buy_transactions) + "\n" +
+              str(self.ticker) + " Buy Transaction Equity: " + str(self.buy_transaction_equity) + "\n" +
               str(self.ticker) + " Position Start Date: " + str(
             pd.to_datetime(self.Performance.start_date).strftime("%d-%m-%Y")) + "\n" +
               str(self.ticker) + " Position Equity Start: " + str(self.Performance.start_price) + "\n" +
@@ -195,6 +200,7 @@ class Result:
             [pd.to_datetime(i).strftime("%d-%m-%Y") for i in self.data["sell_signal_date"].tolist() if
              not pd.isna(i)]) + "\n" +
               str(self.ticker) + " Sell Transactions: " + str(self.sell_transactions) + "\n" +
+              str(self.ticker) + " Sell Transaction Equity: " + str(self.sell_transaction_equity) + "\n" +
               str(self.ticker) + " Position End Date: " + str(
             pd.to_datetime(self.Performance.end_date).strftime("%d-%m-%Y")) + "\n" +
               str(self.ticker) + " Position Equity End: " + str(self.Performance.end_price) + "\n" +

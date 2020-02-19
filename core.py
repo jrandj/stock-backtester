@@ -9,7 +9,7 @@ from Strategy import Strategy
 
 def main():
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.WARNING)
-    tickers = ["NOR"]
+    tickers = ["AJM"]
     # tickers = ["BRN", "NOR", "SAS", "KRR", "RAP", "ZYB", "UNL", "BOT", "SPT", "CGB", "MTC", "88E", "NHL", "SVA", "AC8",
     #            "AJM", "G88", "AVZ", "4CE", "MCT", "BAR", "IMU", "VOR", "BIT", "BD1", "CLA", "SCU"]
     first = timer()
@@ -24,7 +24,7 @@ def main():
     #         for k in np.arange(3, 8, 1):
     #             strategies.append(Strategy(i, 0, j, k))
 
-    strategies.append(Strategy(4.1, 0, 0.02, 4))
+    strategies.append(Strategy(2.1, 0, 0.02, 4))
     i = 0
     strategy_count = len(strategies)
 
