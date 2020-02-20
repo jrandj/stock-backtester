@@ -96,7 +96,7 @@ class Result:
         buy_and_hold_position_array = np.empty(len(close_array))
         buy_and_hold_position_array[:] = np.nan
         open_long_position_array = np.empty(len(close_array))
-        open_long_position_array[:] = np.nan
+        open_long_position_array[:] = 0
         strategy_equity_array = np.empty(len(close_array))
         strategy_equity_array[:] = np.nan
         buy_and_hold_equity_array = np.empty(len(close_array))
@@ -146,8 +146,7 @@ class Result:
                 buy_and_hold_position_array[i] = close_array[i]
 
             # Calculate equity based on position
-            equity = shares * close_array[i]
-            strategy_equity_array[i] = equity + cash
+            strategy_equity_array[i] = shares * open_long_position_array[i] + cash
             buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
 
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
