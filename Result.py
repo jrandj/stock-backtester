@@ -96,7 +96,7 @@ class Result:
         buy_and_hold_position_array = np.empty(len(close_array))
         buy_and_hold_position_array[:] = np.nan
         open_long_position_array = np.empty(len(close_array))
-        open_long_position_array[:] = 0
+        open_long_position_array[:] = np.nan
         strategy_equity_array = np.empty(len(close_array))
         strategy_equity_array[:] = np.nan
         buy_and_hold_equity_array = np.empty(len(close_array))
@@ -109,6 +109,7 @@ class Result:
 
         j = 0
         for i in range(0, len(close_array)):
+
             # Handle buy
             if np.isfinite(buy_signal_array[i]):
                 if not open_long_position:
@@ -137,17 +138,13 @@ class Result:
                     sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
                     sell_transaction_equity.append(round(shares * close_array[i] + cash, 2))
 
-            if open_long_position:
-                # Record when we held an open long position
-                open_long_position_array[i] = close_array[i]
+            # Record open positions
+            open_long_position_array[i] = close_array[i] if open_long_position else 0
+            buy_and_hold_position_array[i] = close_array[i] if buy_and_hold else 0
 
-            if buy_and_hold:
-                # Record when our buy and hold position
-                buy_and_hold_position_array[i] = close_array[i]
-
-            # Calculate equity based on position
+            # Record equity
+            buy_and_hold_equity_array[i] = buy_and_hold_shares * buy_and_hold_position_array[i] + buy_and_hold_cash
             strategy_equity_array[i] = shares * open_long_position_array[i] + cash
-            buy_and_hold_equity_array[i] = buy_and_hold_shares * close_array[i] + buy_and_hold_cash
 
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
                                      buy_and_hold_equity=buy_and_hold_equity_array,
@@ -173,6 +170,9 @@ class Result:
             end_date_ref = self.data["date"][date_index_buy_and_hold].iloc[-1]
             end_price = self.data["strategy_equity"][date_index_long].iloc[-1]
             end_price_ref = self.data["buy_and_hold_equity"][date_index_buy_and_hold].iloc[-1]
+            # NEED TO UNDERSTAND WHAT YOU ARE TRYING TO DO HERE! why use dates as indices? does that align with sell equity?
+            # End date should be able to be used like that?
+
 
         # Compute annualised returns
         delta = 1 + (end_date - start_date).days

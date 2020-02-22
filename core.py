@@ -25,9 +25,8 @@ def main():
     #             strategies.append(Strategy(i, 0, j, k))
 
     strategies.append(Strategy(2.1, 0, 0.02, 4))
-    i = 0
     strategy_count = len(strategies)
-
+    i = 0
     for ticker in tickers:
         mask = np.in1d(historical_data['ticker'].values, [ticker])
         historical_data_trim = historical_data[mask]
@@ -39,12 +38,13 @@ def main():
             print("Strategy(" + str(strategy.required_profit) + ", " + str(strategy.required_pct_change_min) + ", " +
                   str(strategy.required_pct_change_max) + ", " + str(strategy.required_volume) + ")" + " "
                   + str(i) + " of " + str(strategy_count) + " of total strategies")
-            i = i + 1
+
             result = Result(ticker, strategy, historical_data_trim)
             if config.write_results:
                 utility.results_to_csv(config.path, result)
             else:
                 utility.plot_price(result.data, ticker)
+            i = i + 1
 
     complete = timer()
     print("Runtime: " + '{0:0.1f} seconds'.format(complete - load))
