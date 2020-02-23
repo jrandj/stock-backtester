@@ -12,6 +12,7 @@ def main():
     tickers = ["AJM"]
     # tickers = ["BRN", "NOR", "SAS", "KRR", "RAP", "ZYB", "UNL", "BOT", "SPT", "CGB", "MTC", "88E", "NHL", "SVA", "AC8",
     #            "AJM", "G88", "AVZ", "4CE", "MCT", "BAR", "IMU", "VOR", "BIT", "BD1", "CLA", "SCU"]
+
     first = timer()
     historical_data = utility.import_data(config.csv_file, config.hdf_file, config.path)
     load = timer()
@@ -26,7 +27,7 @@ def main():
 
     strategies.append(Strategy(2.1, 0, 0.02, 4))
     strategy_count = len(strategies)
-    i = 0
+    i = 1
     for ticker in tickers:
         mask = np.in1d(historical_data['ticker'].values, [ticker])
         historical_data_trim = historical_data[mask]

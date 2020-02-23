@@ -170,9 +170,6 @@ class Result:
             end_date_ref = self.data["date"][date_index_buy_and_hold].iloc[-1]
             end_price = self.data["strategy_equity"][date_index_long].iloc[-1]
             end_price_ref = self.data["buy_and_hold_equity"][date_index_buy_and_hold].iloc[-1]
-            # NEED TO UNDERSTAND WHAT YOU ARE TRYING TO DO HERE! why use dates as indices? does that align with sell equity?
-            # End date should be able to be used like that?
-
 
         # Compute annualised returns
         delta = 1 + (end_date - start_date).days
@@ -213,12 +210,12 @@ class Result:
 class Performance:
     def __init__(self, annualised_return, annualised_return_ref, start_price, start_date, end_price, end_date, gain,
                  gain_ref):
-        self.annualised_return = annualised_return
-        self.annualised_return_ref = annualised_return_ref
-        self.start_price = start_price
+        self.annualised_return = np.round(annualised_return, 2)
+        self.annualised_return_ref = np.round(annualised_return_ref, 2)
+        self.start_price = np.round(start_price, 2)
         self.start_date = start_date
-        self.end_price = end_price
+        self.end_price = np.round(end_price, 2)
         self.end_date = end_date
-        self.gain = gain
-        self.gain_ref = gain_ref
+        self.gain = np.round(gain, 2)
+        self.gain_ref = np.round(gain_ref, 2)
         return

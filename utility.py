@@ -116,7 +116,7 @@ def results_to_csv(path, result):
               "Required % Change Min", "Required % Change Max", "Strategy"]
     file_exists = os.path.isfile(path + r" Performance.csv")
     with open(path + r" Performance.csv", "a", newline='') as csv_file:
-        wr = csv.writer(csv_file)
+        wr = csv.writer(csv_file, delimiter="~")
         if not file_exists:
             wr.writerow([g for g in schema])
         wr.writerow(results)
