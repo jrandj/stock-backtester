@@ -14,6 +14,19 @@ class Result:
         self.transactions = len(self.buy_transactions + self.sell_transactions)
         self.print_results()
 
+    def as_dict(self):
+        return {'ticker': self.ticker, 'strategy': "Strategy(" + str(self.strategy.required_profit) + ", " + str(
+            self.strategy.required_pct_change_min) + ", " + str(self.strategy.required_pct_change_max) + ", " + str(
+            self.strategy.required_volume) + ")",
+                'annualised_return': self.Performance.annualised_return,
+                'annualised_return_ref': self.Performance.annualised_return_ref,
+                'end_date': self.Performance.end_date,
+                'end_price': self.Performance.end_price,
+                'gain': self.Performance.gain,
+                'gain_ref': self.Performance.gain_ref,
+                'start_date': self.Performance.start_date,
+                'start_price': self.Performance.start_price}
+
     def tech_indicators(self):
         self.data = self.data.assign(close_MA_50=self.data[["close"]].ewm(span=50).mean())
         self.data = self.data.assign(close_MA_200=self.data[["close"]].ewm(span=200).mean())

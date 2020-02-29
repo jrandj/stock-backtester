@@ -6,7 +6,6 @@ import utility
 from Result import Result
 from Strategy import Strategy
 
-
 def main():
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.WARNING)
     tickers = ["AJM"]
@@ -42,7 +41,8 @@ def main():
 
             result = Result(ticker, strategy, historical_data_trim)
             if config.write_results:
-                utility.results_to_csv(config.path, result)
+                # utility.results_to_csv(config.path, result)
+                utility.results_to_db(result)
             else:
                 utility.plot_price(result.data, ticker)
             i = i + 1

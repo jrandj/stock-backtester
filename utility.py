@@ -7,6 +7,8 @@ import numpy as np
 import csv
 from matplotlib.dates import num2date, date2num
 from mpl_finance import candlestick_ochl
+import sqlalchemy
+import config
 
 
 def import_data(csv_file, hdf_file, path):
@@ -121,4 +123,12 @@ def results_to_csv(path, result):
             wr.writerow([g for g in schema])
         wr.writerow(results)
         csv_file.close()
+    return
+
+
+def results_to_db(result):
+    engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
+    result_dict = result.as_dict()
+    df = pd.DataFrame.from_records([result_dict])
+    df.to_sql(config.table, con=engine, if_exists='append', index_label='id')
     return
