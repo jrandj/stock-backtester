@@ -8,6 +8,7 @@ import csv
 from matplotlib.dates import num2date, date2num
 from mpl_finance import candlestick_ochl
 import sqlalchemy
+from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime
 import config
 
 
@@ -129,7 +130,29 @@ def results_to_csv(path, result):
 def results_to_db(result):
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     result_dict = result.as_dict()
-    result_dict["timestamp"] = datetime.datetime.now().isoformat(timespec="seconds")
+    result_dict["timestamp"] = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     df = pd.DataFrame.from_records([result_dict])
     df.to_sql(config.table, con=engine, chunksize=1000, method="multi", if_exists="append", index=False)
     return
+
+
+def init_results_table():
+    engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
+    if not engine.dialect.has_table(engine, "results", schema="dbo"):
+        meta = MetaData()
+        results = Table(
+            "results", meta,
+            Column("id", Integer, primary_key=True),
+            Column("ticker", String),
+            Column("strategy", String),
+            Column("annualised_return", Float),
+            Column("annualised_return_ref", Float),
+            Column("end_date", DateTime),
+            Column("end_price", Float),
+            Column("gain", Float),
+            Column("gain_ref", Float),
+            Column("start_date", DateTime),
+            Column("start_price", Float),
+            Column("timestamp", DateTime),
+        )
+        meta.create_all(engine)
