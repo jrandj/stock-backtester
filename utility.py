@@ -129,6 +129,7 @@ def results_to_csv(path, result):
 def results_to_db(result):
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     result_dict = result.as_dict()
+    result_dict["timestamp"] = datetime.datetime.now().isoformat(timespec="seconds")
     df = pd.DataFrame.from_records([result_dict])
-    df.to_sql(config.table, con=engine, if_exists='append', index_label='id')
+    df.to_sql(config.table, con=engine, chunksize=1000, method="multi", if_exists="append", index=False)
     return
