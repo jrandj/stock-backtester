@@ -16,7 +16,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install ASX200-
     ```
 3. Install dependencies
     ```bash
-    pip install -r requirements.txt
+    pip3 install -r requirements.txt
     ```
 
 ## Usage
