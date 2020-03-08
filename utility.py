@@ -158,6 +158,7 @@ def result_to_db(result):
                   index=False)
     sell_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
                    index=False)
+    return
 
 
 def init_performance_table():
