@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 from matplotlib.dates import num2date, date2num
-from mpl_finance import candlestick_ochl
+from mplfinance.original_flavor import candlestick_ochl
 import sqlalchemy
 from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, ForeignKey
 import config
