@@ -8,7 +8,7 @@ import csv
 from matplotlib.dates import num2date, date2num
 from mpl_finance import candlestick_ochl
 import sqlalchemy
-from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime
+from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, ForeignKey
 import config
 
 
@@ -127,32 +127,73 @@ def results_to_csv(path, result):
     return
 
 
-def results_to_db(result):
+def result_to_db(result):
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
-    result_dict = result.as_dict()
+    result_dict = result.performance_as_dict()
     result_dict["timestamp"] = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
     df = pd.DataFrame.from_records([result_dict])
-    df.to_sql(config.table, con=engine, chunksize=1000, method="multi", if_exists="append", index=False)
-    return
+
+    # Write results to performance table
+    df.to_sql(config.performance_table, con=engine, chunksize=1000, method="multi", if_exists="append", index=False)
+
+    # Get foreign key from performance table
+    last_id = engine.execute("select MAX(id) from performance;").scalar()
+    last_id_buy_array = np.array([last_id] * len(result.buy_transactions)).reshape(len(result.buy_transactions), 1)
+    last_id_sell_array = np.array([last_id] * len(result.sell_transactions)).reshape(len(result.sell_transactions), 1)
+
+    # Prepare data for database write
+    buy_transactions_array = np.array(result.buy_transactions).reshape(len(result.buy_transactions), 1)
+    buy_equity_array = np.array(result.buy_transaction_equity).reshape(len(result.buy_transaction_equity), 1)
+    buy_transaction_type = np.array(["buy"] * len(result.buy_transactions)).reshape(len(result.buy_transactions), 1)
+    buy_df = pd.DataFrame(np.hstack((last_id_buy_array, buy_transaction_type, buy_transactions_array, buy_equity_array)),
+                          columns=["performance_id", "transaction_type", "buy_transaction", "buy_transaction_equity"])
+    sell_transactions_array = np.array(result.sell_transactions).reshape(len(result.sell_transactions), 1)
+    sell_equity_array = np.array(result.sell_transaction_equity).reshape(len(result.sell_transaction_equity), 1)
+    sell_transaction_type = np.array(["sell"] * len(result.sell_transactions)).reshape(len(result.sell_transactions), 1)
+    sell_df = pd.DataFrame(np.hstack((last_id_sell_array, sell_transaction_type, sell_transactions_array, sell_equity_array)),
+                           columns=["performance_id", "transaction_type", "sell_transaction", "sell_transaction_equity"])
+
+    # Write results to transactions table
+    buy_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
+                  index=False)
+    sell_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
+                   index=False)
 
 
-def init_results_table():
+def init_performance_table():
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
-    if not engine.dialect.has_table(engine, "results", schema="dbo"):
-        meta = MetaData()
-        results = Table(
-            "results", meta,
-            Column("id", Integer, primary_key=True),
-            Column("ticker", String),
-            Column("strategy", String),
-            Column("annualised_return", Float),
-            Column("annualised_return_ref", Float),
-            Column("end_date", DateTime),
-            Column("end_price", Float),
-            Column("gain", Float),
-            Column("gain_ref", Float),
-            Column("start_date", DateTime),
-            Column("start_price", Float),
-            Column("timestamp", DateTime),
-        )
-        meta.create_all(engine)
+    meta = MetaData(engine)
+    performance = Table(
+        "performance", meta,
+        Column("id", Integer, primary_key=True),
+        Column("ticker", String),
+        Column("strategy", String),
+        Column("annualised_return", Float),
+        Column("annualised_return_ref", Float),
+        Column("end_date", DateTime),
+        Column("end_price", Float),
+        Column("gain", Float),
+        Column("gain_ref", Float),
+        Column("start_date", DateTime),
+        Column("start_price", Float),
+        Column("timestamp", DateTime),
+    )
+    meta.create_all(engine, checkfirst=True)
+    return performance
+
+
+def init_transactions_table(performance):
+    engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
+    meta = MetaData()
+    transactions = Table(
+        "transactions", meta,
+        Column("id", Integer, primary_key=True),
+        Column("performance_id", Integer, ForeignKey(performance.c.id)),
+        Column("transaction_type", String),
+        Column("buy_transaction", String),
+        Column("buy_transaction_equity", String),
+        Column("sell_transaction", String),
+        Column("sell_transaction_equity", String),
+    )
+    meta.create_all(engine, checkfirst=True)
+    return transactions

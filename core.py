@@ -24,7 +24,7 @@ def main():
     #         for k in np.arange(3, 8, 1):
     #             strategies.append(Strategy(i, 0, j, k))
 
-    strategies.append(Strategy(2.1, 0, 0.02, 4))
+    strategies.append(Strategy(3.1, 0, 0.04, 3))
     strategy_count = len(strategies)
     i = 1
     for ticker in tickers:
@@ -42,8 +42,9 @@ def main():
             result = Result(ticker, strategy, historical_data_trim)
             if config.write_results:
                 # utility.results_to_csv(config.path, result)
-                utility.init_results_table()
-                utility.results_to_db(result)
+                performance = utility.init_performance_table()
+                utility.init_transactions_table(performance)
+                utility.result_to_db(result)
             else:
                 utility.plot_price(result.data, ticker)
             i = i + 1

@@ -14,7 +14,7 @@ class Result:
         self.transactions = len(self.buy_transactions + self.sell_transactions)
         self.print_results()
 
-    def as_dict(self):
+    def performance_as_dict(self):
         return {'ticker': self.ticker, 'strategy': "Strategy(" + str(self.strategy.required_profit) + ", " + str(
             self.strategy.required_pct_change_min) + ", " + str(self.strategy.required_pct_change_max) + ", " + str(
             self.strategy.required_volume) + ")",

@@ -11,4 +11,5 @@ params = urllib.parse.quote_plus("DRIVER={SQL Server Native Client 11.0};"
                                  "SERVER=DESKTOP-A4KARRF\SQLEXPRESS;"
                                  "DATABASE=Analysis;"
                                  "Trusted_Connection=yes")
-table = "results"
+performance_table = "performance"
+transactions_table = "transactions"
