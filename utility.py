@@ -146,12 +146,12 @@ def result_to_db(result):
     buy_equity_array = np.array(result.buy_transaction_equity).reshape(len(result.buy_transaction_equity), 1)
     buy_transaction_type = np.array(["buy"] * len(result.buy_transactions)).reshape(len(result.buy_transactions), 1)
     buy_df = pd.DataFrame(np.hstack((last_id_buy_array, buy_transaction_type, buy_transactions_array, buy_equity_array)),
-                          columns=["performance_id", "transaction_type", "buy_transaction", "buy_transaction_equity"])
+                          columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
     sell_transactions_array = np.array(result.sell_transactions).reshape(len(result.sell_transactions), 1)
     sell_equity_array = np.array(result.sell_transaction_equity).reshape(len(result.sell_transaction_equity), 1)
     sell_transaction_type = np.array(["sell"] * len(result.sell_transactions)).reshape(len(result.sell_transactions), 1)
     sell_df = pd.DataFrame(np.hstack((last_id_sell_array, sell_transaction_type, sell_transactions_array, sell_equity_array)),
-                           columns=["performance_id", "transaction_type", "sell_transaction", "sell_transaction_equity"])
+                           columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
 
     # Write results to transactions table
     buy_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
@@ -191,10 +191,10 @@ def init_transactions_table(performance):
         Column("id", Integer, primary_key=True),
         Column("performance_id", Integer, ForeignKey(performance.c.id)),
         Column("transaction_type", String),
-        Column("buy_transaction", String),
-        Column("buy_transaction_equity", String),
-        Column("sell_transaction", String),
-        Column("sell_transaction_equity", String),
+        Column("transaction_date", String),
+        Column("transaction_equity", String),
     )
     meta.create_all(engine, checkfirst=True)
     return transactions
+
+
