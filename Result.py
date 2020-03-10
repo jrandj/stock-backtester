@@ -142,7 +142,7 @@ class Result:
                   buy_signal_array_nonan[j]):
                 # Need to offset the index which is based on the original dataframe with all tickers
                 self.data.at[self.data.index[0] + i, "sell_signal"] = close_array[i]
-                self.data.at[self.data.index[0] + i, "sell_signal_date"] = date_array[i]
+                self.data.at[self.data.index[0] + i, "sell_signal_date"] = pd.to_datetime(date_array[i])
                 if open_long_position:
                     j = j + 1
                     cash = (1 - transaction_fee) * shares * close_array[i]
@@ -159,6 +159,7 @@ class Result:
             buy_and_hold_equity_array[i] = buy_and_hold_shares * buy_and_hold_position_array[i] + buy_and_hold_cash
             strategy_equity_array[i] = shares * open_long_position_array[i] + cash
 
+        self.data.sell_signal_date = self.data.sell_signal_date.astype("datetime64", copy=False)
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
                                      buy_and_hold_equity=buy_and_hold_equity_array,
                                      open_long_position=open_long_position_array,
