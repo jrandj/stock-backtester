@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import config
 
 
 class Result:
@@ -81,8 +82,6 @@ class Result:
     def buy_and_sell_signals(self):
         self.data = self.data.assign(buy_signal=np.nan, sell_signal=np.nan, buy_signal_date=np.nan,
                                      sell_signal_date=np.nan)
-        # n1 = self.data["close_MA_50"].shift(1)
-        # n2 = self.data["close_MA_200"].shift(1)
         buy_prices = self.data["close"].iloc[np.where(self.data["volume_change_buy"] & self.data["price_change_buy"])]
         buy_dates = self.data["date"].iloc[np.where(self.data["volume_change_buy"] & self.data["price_change_buy"])]
         self.data = self.data.assign(buy_signal=buy_prices)
@@ -91,73 +90,57 @@ class Result:
 
     # Enter and exit positions based on buy/sell signals
     def trade(self):
-        buy_transactions = []
-        buy_transaction_equity = []
-        sell_transactions = []
-        sell_transaction_equity = []
-        transaction_fee = 0.011
-        open_long_position = 0
-        buy_and_hold = 0
-        buy_and_hold_shares = 0
-        shares = 0
-        cash = 100000
-        buy_and_hold_cash = 100000
-        buy_signal_array = self.data["buy_signal"].values
-        buy_signal_array_dates = self.data["buy_signal_date"].values
-        close_array = self.data["close"].values
-        date_array = self.data["date"].values
-        buy_and_hold_position_array = np.empty(len(close_array))
-        buy_and_hold_position_array[:] = np.nan
-        open_long_position_array = np.empty(len(close_array))
-        open_long_position_array[:] = np.nan
-        strategy_equity_array = np.empty(len(close_array))
-        strategy_equity_array[:] = np.nan
-        buy_and_hold_equity_array = np.empty(len(close_array))
-        buy_and_hold_equity_array[:] = np.nan
-
-        # Create buy signal and buy signal dates without NaN or NaT
-        # NaN and NaT inclusive arrays required for plots etc.
-        buy_signal_array_nonan = buy_signal_array[~np.isnan(buy_signal_array)]
-        buy_signal_array_dates_nonat = buy_signal_array_dates[~np.isnat(buy_signal_array_dates)]
-
+        buy_transactions, buy_transaction_equity, sell_transactions, sell_transaction_equity = ([] for i in range(4))
+        open_long_position, buy_and_hold, buy_and_hold_shares, buy_and_hold, buy_and_hold_shares, shares = (
+            0, 0, 0, 0, 0, 0)
+        buy_and_hold_position_array, open_long_position_array, strategy_equity_array, buy_and_hold_equity_array = (
+            np.full(len(self.data["close"].values), np.nan) for i in range(4))
+        # Create buy signal and buy signal dates without NaN or NaT (NaN and NaT inclusive arrays required for plots)
+        buy_signal_array_nonan = self.data["buy_signal"].values[~np.isnan(self.data["buy_signal"].values)]
+        buy_signal_array_dates_nonat = self.data["buy_signal_date"].values[
+            ~np.isnat(self.data["buy_signal_date"].values)]
         j = 0
-        for i in range(0, len(close_array)):
+
+        for i in range(0, len(self.data["close"].values)):
 
             # Handle buy
-            if np.isfinite(buy_signal_array[i]):
+            if np.isfinite(self.data["buy_signal"].values[i]):
                 if not open_long_position:
-                    open_long_position = close_array[i]
-                    shares = (1 - transaction_fee) * (cash / open_long_position)
-                    cash = 0
-                    buy_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
-                    buy_transaction_equity.append(round(shares * close_array[i] + cash, 2))
+                    open_long_position = self.data["close"].values[i]
+                    shares = (1 - config.transaction_fee) * (config.cash / open_long_position)
+                    config.cash = 0
+                    buy_transactions.append(pd.to_datetime(self.data["date"].values[i]).strftime("%d-%m-%Y"))
+                    buy_transaction_equity.append(round(shares * self.data["close"].values[i] + config.cash, 2))
                 if not buy_and_hold:
-                    buy_and_hold_shares = ((1 - transaction_fee) * buy_and_hold_cash) / close_array[i]
-                    buy_and_hold_cash = 0
+                    buy_and_hold_shares = ((1 - config.transaction_fee) * config.buy_and_hold_cash) / \
+                                          self.data["close"].values[i]
+                    config.buy_and_hold_cash = 0
                     buy_and_hold = 1
 
             # Handle sell
-            elif (j < len(buy_signal_array_nonan) and date_array[i] > buy_signal_array_dates_nonat[j] and close_array[
-                i] > self.strategy.required_profit *
+            elif (j < len(buy_signal_array_nonan) and self.data["date"].values[i] > buy_signal_array_dates_nonat[j] and
+                  self.data["close"].values[
+                      i] > self.strategy.required_profit *
                   buy_signal_array_nonan[j]):
                 # Need to offset the index which is based on the original dataframe with all tickers
-                self.data.at[self.data.index[0] + i, "sell_signal"] = close_array[i]
-                self.data.at[self.data.index[0] + i, "sell_signal_date"] = pd.to_datetime(date_array[i])
+                self.data.at[self.data.index[0] + i, "sell_signal"] = self.data["close"].values[i]
+                self.data.at[self.data.index[0] + i, "sell_signal_date"] = pd.to_datetime(self.data["date"].values[i])
                 if open_long_position:
                     j = j + 1
-                    cash = (1 - transaction_fee) * shares * close_array[i]
+                    cash = (1 - config.transaction_fee) * shares * self.data["close"].values[i]
                     shares = 0
                     open_long_position = 0
-                    sell_transactions.append(pd.to_datetime(date_array[i]).strftime("%d-%m-%Y"))
-                    sell_transaction_equity.append(round(shares * close_array[i] + cash, 2))
+                    sell_transactions.append(pd.to_datetime(self.data["date"].values[i]).strftime("%d-%m-%Y"))
+                    sell_transaction_equity.append(round(shares * self.data["close"].values[i] + cash, 2))
 
             # Record open positions
-            open_long_position_array[i] = close_array[i] if open_long_position else 0
-            buy_and_hold_position_array[i] = close_array[i] if buy_and_hold else 0
+            open_long_position_array[i] = self.data["close"].values[i] if open_long_position else 0
+            buy_and_hold_position_array[i] = self.data["close"].values[i] if buy_and_hold else 0
 
             # Record equity
-            buy_and_hold_equity_array[i] = buy_and_hold_shares * buy_and_hold_position_array[i] + buy_and_hold_cash
-            strategy_equity_array[i] = shares * open_long_position_array[i] + cash
+            buy_and_hold_equity_array[i] = buy_and_hold_shares * buy_and_hold_position_array[
+                i] + config.buy_and_hold_cash
+            strategy_equity_array[i] = shares * open_long_position_array[i] + config.cash
 
         self.data.sell_signal_date = self.data.sell_signal_date.astype("datetime64", copy=False)
         self.data = self.data.assign(strategy_equity=strategy_equity_array,

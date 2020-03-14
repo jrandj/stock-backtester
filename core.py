@@ -41,7 +41,6 @@ def main():
 
             result = Result(ticker, strategy, historical_data_trim)
             if config.write_results:
-                # utility.results_to_csv(config.path, result)
                 performance = utility.init_performance_table()
                 utility.init_transactions_table(performance)
                 utility.result_to_db(result)
