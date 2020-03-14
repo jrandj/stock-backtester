@@ -13,6 +13,7 @@ params = urllib.parse.quote_plus("DRIVER={SQL Server Native Client 11.0};"
                                  "Trusted_Connection=yes")
 performance_table = "performance"
 transactions_table = "transactions"
+signals_table = "signals"
 
 # Simulation config
 transaction_fee = 0.011
