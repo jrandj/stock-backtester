@@ -100,6 +100,8 @@ class Result:
         buy_signal_array_dates_nonat = self.data["buy_signal_date"].values[
             ~np.isnat(self.data["buy_signal_date"].values)]
         j = 0
+        cash = config.cash
+        buy_and_hold_cash = config.buy_and_hold_cash
 
         for i in range(0, len(self.data["close"].values)):
 
@@ -107,14 +109,14 @@ class Result:
             if np.isfinite(self.data["buy_signal"].values[i]):
                 if not open_long_position:
                     open_long_position = self.data["close"].values[i]
-                    shares = (1 - config.transaction_fee) * (config.cash / open_long_position)
-                    config.cash = 0
+                    shares = (1 - config.transaction_fee) * (cash / open_long_position)
+                    cash = 0
                     buy_transactions.append(pd.to_datetime(self.data["date"].values[i]).strftime("%d-%m-%Y"))
-                    buy_transaction_equity.append(round(shares * self.data["close"].values[i] + config.cash, 2))
+                    buy_transaction_equity.append(round(shares * self.data["close"].values[i] + cash, 2))
                 if not buy_and_hold:
-                    buy_and_hold_shares = ((1 - config.transaction_fee) * config.buy_and_hold_cash) / \
+                    buy_and_hold_shares = ((1 - config.transaction_fee) * buy_and_hold_cash) / \
                                           self.data["close"].values[i]
-                    config.buy_and_hold_cash = 0
+                    buy_and_hold_cash = 0
                     buy_and_hold = 1
 
             # Handle sell
@@ -139,10 +141,10 @@ class Result:
 
             # Record equity
             buy_and_hold_equity_array[i] = buy_and_hold_shares * buy_and_hold_position_array[
-                i] + config.buy_and_hold_cash
-            strategy_equity_array[i] = shares * open_long_position_array[i] + config.cash
+                i] + buy_and_hold_cash
+            strategy_equity_array[i] = shares * open_long_position_array[i] + cash
 
-        self.data.sell_signal_date = self.data.sell_signal_date.astype("datetime64", copy=False)
+        self.data.sell_signal_date = self.data.sell_signal_date.astype("datetime64[ns]", copy=False)
         self.data = self.data.assign(strategy_equity=strategy_equity_array,
                                      buy_and_hold_equity=buy_and_hold_equity_array,
                                      open_long_position=open_long_position_array,
