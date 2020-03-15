@@ -10,6 +10,7 @@ from mplfinance.original_flavor import candlestick_ochl
 import sqlalchemy
 from sqlalchemy import MetaData, Table, Column, Integer, String, Float, DateTime, ForeignKey
 import config
+import math
 
 
 def import_data(csv_file, hdf_file, path):
@@ -130,11 +131,12 @@ def results_to_csv(path, result):
 def result_to_db(result):
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     result_dict = result.performance_as_dict()
-    result_dict["timestamp"] = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+    result_dict["timestamp"] = datetime.datetime.now()
     df = pd.DataFrame.from_records([result_dict])
 
     # Write results to performance table
-    df.to_sql(config.performance_table, con=engine, chunksize=1000, method="multi", if_exists="append", index=False)
+    df.to_sql(config.performance_table, con=engine, chunksize=math.floor(2100 / len(df.columns)), method="multi",
+              if_exists="append", index=False)
 
     # Get foreign key from performance table
     last_id = engine.execute("select MAX(id) from performance;").scalar()
@@ -145,13 +147,15 @@ def result_to_db(result):
     buy_transactions_array = np.array(result.buy_transactions).reshape(len(result.buy_transactions), 1)
     buy_equity_array = np.array(result.buy_transaction_equity).reshape(len(result.buy_transaction_equity), 1)
     buy_transaction_type = np.array(["buy"] * len(result.buy_transactions)).reshape(len(result.buy_transactions), 1)
-    buy_df = pd.DataFrame(np.hstack((last_id_buy_array, buy_transaction_type, buy_transactions_array, buy_equity_array)),
-                          columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
+    buy_df = pd.DataFrame(
+        np.hstack((last_id_buy_array, buy_transaction_type, buy_transactions_array, buy_equity_array)),
+        columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
     sell_transactions_array = np.array(result.sell_transactions).reshape(len(result.sell_transactions), 1)
     sell_equity_array = np.array(result.sell_transaction_equity).reshape(len(result.sell_transaction_equity), 1)
     sell_transaction_type = np.array(["sell"] * len(result.sell_transactions)).reshape(len(result.sell_transactions), 1)
-    sell_df = pd.DataFrame(np.hstack((last_id_sell_array, sell_transaction_type, sell_transactions_array, sell_equity_array)),
-                           columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
+    sell_df = pd.DataFrame(
+        np.hstack((last_id_sell_array, sell_transaction_type, sell_transactions_array, sell_equity_array)),
+        columns=["performance_id", "transaction_type", "transaction_date", "transaction_equity"])
 
     # Prepare signals data for database write
     buy_signal_array_nonat = result.data.buy_signal_date[~np.isnat(result.data.buy_signal_date)]
@@ -165,19 +169,23 @@ def result_to_db(result):
     last_id_sell_signal_array = np.array([last_id] * len(sell_signals_array)).reshape(
         len(sell_signals_array), 1)
     buy_signals_df = pd.DataFrame(np.hstack((last_id_buy_signal_array, buy_signals_type, buy_signals_array)),
-                          columns=["performance_id", "signal_type", "signal_date"])
+                                  columns=["performance_id", "signal_type", "signal_date"])
     sell_signals_df = pd.DataFrame(np.hstack((last_id_sell_signal_array, sell_signals_type, sell_signals_array)),
-                          columns=["performance_id", "signal_type", "signal_date"])
+                                   columns=["performance_id", "signal_type", "signal_date"])
 
     # Write results to transactions table
-    buy_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
+    buy_df.to_sql(config.transactions_table, con=engine, chunksize=math.floor(2100 / len(df.columns)), method="multi",
+                  if_exists="append",
                   index=False)
-    sell_df.to_sql(config.transactions_table, con=engine, chunksize=1000, method="multi", if_exists="append",
+    sell_df.to_sql(config.transactions_table, con=engine, chunksize=math.floor(2100 / len(df.columns)), method="multi",
+                   if_exists="append",
                    index=False)
-    buy_signals_df.to_sql(config.signals_table, con=engine, chunksize=1000, method="multi", if_exists="append",
-                  index=False)
-    sell_signals_df.to_sql(config.signals_table, con=engine, chunksize=1000, method="multi", if_exists="append",
-                   index=False)
+    buy_signals_df.to_sql(config.signals_table, con=engine, chunksize=math.floor(2100 / len(df.columns)),
+                          method="multi", if_exists="append",
+                          index=False)
+    sell_signals_df.to_sql(config.signals_table, con=engine, chunksize=math.floor(2100 / len(df.columns)),
+                           method="multi", if_exists="append",
+                           index=False)
     return
 
 
@@ -230,4 +238,3 @@ def init_signals_table(performance):
     )
     meta.create_all(engine, checkfirst=True)
     return signals
-
