@@ -1,10 +1,12 @@
-# ASX200-Backtesting
+# Stock-Backtester
 
-ASX200-Backtesting is a Python application for testing trading strategies against historical data.
+Stock-backtester is a Python application for testing trading strategies against historical data.
 
-## Installation
+## Getting Started
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install ASX200-Backtesting. Using Windows Command Prompt:
+### Installation
+
+Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stock-backtester. Using Windows Command Prompt:
 
 1. Create a virtual environment
     ```bash
@@ -18,6 +20,11 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install ASX200-
     ```bash
     pip3 install -r requirements.txt
     ```
+### Prerequisites
+
+#### Data
+
+
 
 ## Usage
 
