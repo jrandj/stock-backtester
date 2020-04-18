@@ -1,6 +1,19 @@
 # Stock-Backtester
 
-Stock-backtester is a Python application for testing trading strategies against historical data.
+Stock-backtester is a Python application for testing trading strategies against historical data. 
+Running core.py will test strategies of buying and selling a stock based on technical indicators. Buy signals are 
+generated using:
+* Volume above 20 day moving average
+* Close price change compared to previous day
+
+Sell signals are generated using:
+* Profit required from position
+
+The minimum, maximum and step size for the strategy parameters is defined in the required_profit,
+required_pct_change_max and required_volume arrays in config.py.
+
+### Output
+The output is stored in three SQL DB tables.
 
 ## Getting Started
 
@@ -28,7 +41,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stock-b
 
 ## Usage
 
-TBC
+Running
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
