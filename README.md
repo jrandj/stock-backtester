@@ -9,19 +9,19 @@ The buy signal is intended to model accumulation (i.e. large volume increase wit
 Sell signals are generated using:
 * Profit required for exiting the currently held position.
 
-### Output
+## Output
 The output is stored in three SQL database tables.
 
-####Performance
+###Performance
 Contains the performance of a particular strategy on a particular stock.
 
-####Transactions
+###Transactions
 Contains the transactions associated with a particular strategy and stock (i.e. a row in the performance table).
 
-####Signals
+###Signals
 Contains occurances of buy and sell signals associated with a particular strategy and stock (i.e. a row in the performance table). This is useful as there can be more signals than transactions. For example, if a long position is already held then a buy signal does not result in a buy transaction.
 
-####Plot
+###Plot
 If write_results in config.py is set as 0 then a plot will be produced. An example is shown below:
 
 ![AJM](https://i.ibb.co/G3VjMmF/AJM.jpg)
