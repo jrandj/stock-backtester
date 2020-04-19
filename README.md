@@ -24,7 +24,7 @@ Contains occurances of buy and sell signals associated with a particular strateg
 ####Plot
 If write_results in config.py is set as 0 then a plot will be produced. An example is shown below:
 
-![AJM](https://i.ibb.co/GxM0gV2/AJM.png)
+![AJM](https://i.ibb.co/G3VjMmF/AJM.jpg)
 
 ## Getting Started
 
