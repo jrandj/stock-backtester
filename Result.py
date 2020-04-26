@@ -4,6 +4,45 @@ import config
 
 
 class Result:
+    """
+    A class used to represent a Result.
+
+    Attributes
+    ----------
+    ticker : sequence
+        The stock ticker.
+    data : dataframe
+        The historical data associated with the ticker.
+    strategy : Strategy
+        An instance of the Strategy class.
+    buy_transactions: sequence
+        List of buy transactions.
+    sell_transactions: sequence
+        List of sell transactions.
+    buy_transaction_equity: sequence
+        List of equity values corresponding to the buy transactions.
+    sell_transaction_equity: sequence
+        List of equity values corresponding to the sell transactions.
+    Performance : Performance
+        An instance of the Performance class.
+    transactions : numeric
+        The required multiple of the 20D MA volume to generate a buy signal.
+
+    Methods
+    -------
+    performance_as_dict()
+        Returns the performance results in a dictionary.
+    tech_indicators()
+        Augments the data attribute with columns for technical indicators.
+    buy_and_sell_signals()
+        Calculate signals where they can be vectorised.
+    trade()
+        Enters and exit positions based on buy/sell signals.
+    calculate_returns()
+        Calculate returns after the trade method has been executed.
+    print_results()
+        Print the performance results to the console.
+    """
     def __init__(self, ticker, strategy, raw_data):
         self.ticker = ticker
         self.data = raw_data
@@ -16,6 +55,15 @@ class Result:
         self.print_results()
 
     def performance_as_dict(self):
+        """Returns the performance results in a dictionary.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         return {'ticker': self.ticker, 'strategy': "Strategy(" + str(self.strategy.required_profit) + ", " + str(
             self.strategy.required_pct_change_min) + ", " + str(self.strategy.required_pct_change_max) + ", " + str(
             self.strategy.required_volume) + ")",
@@ -29,6 +77,15 @@ class Result:
                 'start_price': self.Performance.start_price}
 
     def tech_indicators(self):
+        """Augments the data attribute with columns for technical indicators.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         self.data = self.data.assign(close_MA_50=self.data[["close"]].ewm(span=50).mean())
         self.data = self.data.assign(close_MA_200=self.data[["close"]].ewm(span=200).mean())
         self.data = self.data.assign(volume_MA_20=self.data[["volume"]].rolling(20).mean())
@@ -38,7 +95,7 @@ class Result:
         self.data = self.data.assign(
             volume_change_buy=(self.data["volume"] > self.strategy.required_volume * self.data["volume_MA_20"]))
 
-        # MFI
+        # Money Flow Index (MFI)
         typical_price = (self.data["high"] + self.data["low"] + self.data["close"]) / 3
         money_flow = typical_price * self.data["volume"]
         delta = money_flow - money_flow.shift(1)
@@ -52,7 +109,7 @@ class Result:
         money_flow_index = 100 - 100 / (1 + money_ratio)
         self.data = self.data.assign(MFI=money_flow_index)
 
-        # RSI
+        # Relative Strength Index (RSI)
         delta = self.data["close"] - self.data["close"].shift(1)
         delta = pd.Series([0 if np.isnan(x) else x for x in delta])
         up = pd.Series([x if x > 0 else 0 for x in delta])
@@ -70,16 +127,25 @@ class Result:
         stochastic_oscillator = 100 * stochastic_oscillator.rolling(window=3).mean()
         self.data = self.data.assign(STO=stochastic_oscillator)
 
-        # Bolinger Bands
+        # Bollinger Bands
         rolling_mean = self.data[["close"]].ewm(span=50).mean()
         rolling_std = self.data[["close"]].ewm(span=50).std()
         self.data = self.data.assign(BB_upper=rolling_mean + (rolling_std * 2))
         self.data = self.data.assign(BB_lower=rolling_mean - (rolling_std * 2))
         return
 
-    # Calculate buy and sell signals where they can be vectorised
-    # Complex sell signal requires iterating through the data which is done in trade
     def buy_and_sell_signals(self):
+        """Calculate signals where they can be vectorised.
+
+        Generation of sell signal requires iterating through the data which is done in the trade method.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         self.data = self.data.assign(buy_signal=np.nan, sell_signal=np.nan, buy_signal_date=np.nan,
                                      sell_signal_date=np.nan)
         buy_prices = self.data["close"].iloc[np.where(self.data["volume_change_buy"] & self.data["price_change_buy"])]
@@ -88,8 +154,16 @@ class Result:
         self.data = self.data.assign(buy_signal_date=buy_dates)
         return
 
-    # Enter and exit positions based on buy/sell signals
     def trade(self):
+        """Enters and exit positions based on buy/sell signals.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         buy_transactions, buy_transaction_equity, sell_transactions, sell_transaction_equity = ([] for i in range(4))
         open_long_position, buy_and_hold, buy_and_hold_shares, buy_and_hold, buy_and_hold_shares, shares = (
             0, 0, 0, 0, 0, 0)
@@ -152,6 +226,15 @@ class Result:
         return buy_transactions, sell_transactions, buy_transaction_equity, sell_transaction_equity
 
     def calculate_returns(self):
+        """Calculate returns after the trade method has been executed.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         # Calculate returns using strategies and buy and hold
         date_index_long = np.isfinite(self.data["open_long_position"])
         date_index_buy_and_hold = np.isfinite(self.data["buy_and_hold_position"])
@@ -182,6 +265,15 @@ class Result:
         return performance
 
     def print_results(self):
+        """Print the performance results to the console.
+
+        Parameters
+        ----------
+
+        Raises
+        ------
+
+        """
         print(str(self.ticker) + " Strategy Annual Return: " + str(self.Performance.annualised_return) + "%" + "\n" +
               str(self.ticker) + " Buy Signals: " + str(
             [pd.to_datetime(i).strftime("%d-%m-%Y") for i in self.data["buy_signal_date"].tolist() if
@@ -207,6 +299,35 @@ class Result:
 
 
 class Performance:
+    """
+    A class used to hold the performance for the Result.
+
+    Attributes
+    ----------
+    annualised_return : numeric
+        The annualised return based on equity changes following the buy and sell transactions (based on the trading
+        strategy) in the trade method.
+    annualised_return_ref : numeric
+        The annualised return based on equity changes following the buy and hold transactions in the trade method.
+    start_price : numeric
+        The equity at the start of the strategy.
+    start_date : numeric
+        The date at the start of the strategy.
+    end_price : numeric
+        The equity at the end of the strategy.
+    end_date : numeric
+        The date at the end of the strategy.
+    gain : numeric
+        The raw gain (i.e. not annualised) based on equity changes following the buy and sell transactions (based on
+        the trading strategy) in the trade method.
+    gain_ref : numeric
+        The raw gain (i.e. not annualised) based on equity changes following the buy and hold transactions
+        in the trade method.
+
+    Methods
+    -------
+
+    """
     def __init__(self, annualised_return, annualised_return_ref, start_price, start_date, end_price, end_date, gain,
                  gain_ref):
         self.annualised_return = np.round(annualised_return, 2)
