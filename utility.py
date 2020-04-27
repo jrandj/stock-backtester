@@ -14,11 +14,24 @@ import math
 
 
 def import_data(csv_file, hdf_file, path):
-    # Import from hdf file if available
-    # Else import from csv file and create hdf file
-    # Else create CSV file and hd5 file
-    # print(csv_file, hdf_file, path)
+    """Imports historical stock price data.
 
+    Import from consolidated .hdf if available, else import from consolidated .csv if available, else import data and
+    create consolidated files for future imports.
+
+    Parameters
+    ----------
+    csv_file : sequence
+        The relative path to the consolidated .csv file.
+    hdf_file : sequence
+        The relative path to the consolidated .hdf file.
+    path : sequence
+        The path to the directory containing the historical data.
+
+    Raises
+    ------
+
+    """
     if os.path.isfile(path + hdf_file):
         df = pd.read_hdf(path + hdf_file, 'table')
     elif os.path.isfile(path + csv_file):
@@ -45,6 +58,19 @@ def import_data(csv_file, hdf_file, path):
 
 
 def plot_price(df, ticker):
+    """Plot performance of strategy for a particular ticker.
+
+    Parameters
+    ----------
+    df : dataframe
+        The dataframe containing the historical data, open positions etc.
+    ticker : sequence
+        The stock ticker.
+
+    Raises
+    ------
+
+    """
     fig = plt.figure()
     ax1 = fig.add_subplot(211)
     ax2 = ax1.twinx()
@@ -98,7 +124,19 @@ def plot_price(df, ticker):
 
 
 def results_to_csv(path, result):
-    # Save results to .csv
+    """Save results to .csv.
+
+    Parameters
+    ----------
+    path : sequence
+        The path to the directory that the .csv will be written to.
+    result : sequence
+        The results to be written to the .csv.
+
+    Raises
+    ------
+
+    """
     results = [result.ticker, result.Performance.gain, result.Performance.gain_ref,
                result.Performance.annualised_return,
                [pd.to_datetime(i).strftime("%d-%m-%Y") for i in result.data["buy_signal_date"].tolist() if
@@ -129,6 +167,17 @@ def results_to_csv(path, result):
 
 
 def result_to_db(result):
+    """Save results to a SQL database.
+
+    Parameters
+    ----------
+    result : sequence
+        The results to be written to the database.
+
+    Raises
+    ------
+
+    """
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     result_dict = result.performance_as_dict()
     result_dict["timestamp"] = datetime.datetime.now()
@@ -190,6 +239,15 @@ def result_to_db(result):
 
 
 def init_performance_table():
+    """Initialise the performance table in the database.
+
+    Parameters
+    ----------
+
+    Raises
+    ------
+
+    """
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     meta = MetaData(engine)
     performance = Table(
@@ -212,6 +270,17 @@ def init_performance_table():
 
 
 def init_transactions_table(performance):
+    """Initialise the transactions table in the database.
+
+    Parameters
+    ----------
+    performance : Table
+        The performance Table.
+
+    Raises
+    ------
+
+    """
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     meta = MetaData()
     transactions = Table(
@@ -227,6 +296,17 @@ def init_transactions_table(performance):
 
 
 def init_signals_table(performance):
+    """Initialise the signals table in the database.
+
+    Parameters
+    ----------
+    performance : Table
+        The performance Table.
+
+    Raises
+    ------
+
+    """
     engine = sqlalchemy.create_engine("mssql+pyodbc:///?odbc_connect={}".format(config.params))
     meta = MetaData()
     signals = Table(
