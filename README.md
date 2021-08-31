@@ -36,20 +36,19 @@ If write_results in config.py is set as 0 then a plot will be produced. An examp
 
 ### Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stock-backtester. Using Windows Command Prompt:
+Use [pipenv](https://github.com/pypa/pipenv) to install FPL-draft-picker.
 
-1. Create a virtual environment
+1. Create the virtual environment:
     ```bash
-    py -m venv venv
+    pipenv install
     ```
-2. Activate virtual environment
+
+2. Activate the virtual environment:
     ```bash
-    "venv/Scripts/activate.bat"
+    pipenv shell
     ```
-3. Install dependencies
-    ```bash
-    pip3 install -r requirements.txt
-    ```
+
+To check for and update outdated packages run `pipenv update --outdated`. To uninstall run `pipenv uninstall`.
 
 ### Settings
 Modifiable settings contained within config.py are described below:
@@ -83,6 +82,3 @@ transactions_table: The name of the database table that will store the transacti
 signals_table: The name of the database table that will store the signal results.
 
 transaction_fee: The transaction fee that will apply to each transaction.
-
-## License
-[MIT](https://choosealicense.com/licenses/mit/)
