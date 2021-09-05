@@ -2,7 +2,7 @@ import urllib
 
 # Input
 csv_file = r"\data.csv"
-path = r"C:\Users\Historical Data\ASX\Equities"
+path = r"D:\Backups\Trading Project\Historical Data\ASX\Equities"
 hdf_file = r"\data.h5"
 
 # Strategy
@@ -14,7 +14,7 @@ required_volume = [3, 8, 1]
 
 # Database
 params = urllib.parse.quote_plus("DRIVER={SQL Server Native Client 11.0};"
-                                 "SERVER=CPX-8FCYEBIVIZR;"
+                                 "SERVER=DESKTOP-A4KARRF\MSSQLSERVER01;"
                                  "DATABASE=Analysis;"
                                  "Trusted_Connection=yes")
 performance_table = "performance"
