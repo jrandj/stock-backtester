@@ -1,6 +1,7 @@
 # Stock-Backtester
 
-Stock-backtester is a Python application for testing trading strategies against historical data. 
+Stock-backtester is a Python application for testing trading strategies against historical data.
+
 Running core.py will test the buying and selling of stocks based on strategy parameters. The strategy parameters for buy signals are defined using: 
 * Today's volume above the 20 day moving average volume.
 * Today's close price change compared to the previous day price change.
@@ -8,6 +9,23 @@ Running core.py will test the buying and selling of stocks based on strategy par
 The buy signal is intended to model accumulation (i.e. large volume increase with minimal price increase)
 Sell signals are generated using:
 * Profit required for exiting the currently held position.
+
+## Architecture
+
+The package structure is shown below:
+	<p align="center">
+	<img src="/res/packages.png">
+	</p>
+
+The class structure is shown below:
+	<p align="center">
+	<img src="/res/classes.png">
+	</p>
+
+The diagrams have been using pyreverse:
+```bash
+pyreverse -o png .
+```
 
 ## Output
 The output is stored in three SQL database tables.
@@ -24,19 +42,19 @@ Contains occurances of buy and sell signals associated with a particular strateg
 ### Plot
 If write_results in config.py is set as 0 then a plot will be produced. An example is shown below:
 
-![AJM](https://i.ibb.co/G3VjMmF/AJM.jpg)
+![sample](res/sample.jpg)
 
 ## Getting Started
 
 ### Pre-requisites
 
-* Python 3.8
+* Python 3.9.7
 * Microsoft SQL Server
 * SQL Server Management Studio
 
 ### Installation
 
-Use [pipenv](https://github.com/pypa/pipenv) to install FPL-draft-picker.
+Use [pipenv](https://github.com/pypa/pipenv) to install stock-backtester.
 
 1. Create the virtual environment:
     ```bash
