@@ -2,11 +2,11 @@
     A Python application to backtest your trading strategies!
     <br>
     <br>
-    <a href="https://img.shields.io/github/pipenv/locked/python-version/jrandj/FPL-draft-picker" alt="Python version">
-        <img src="https://img.shields.io/github/pipenv/locked/python-version/jrandj/FPL-draft-picker" />
+    <a href="https://img.shields.io/github/pipenv/locked/python-version/jrandj/stock-backtester" alt="Python version">
+        <img src="https://img.shields.io/github/pipenv/locked/python-version/jrandj/stock-backtester" />
     </a>
-    <a href="https://img.shields.io/github/license/jrandj/FPL-draft-picker" alt="Python version">
-        <img src="https://img.shields.io/github/license/jrandj/Stock-Backtester" />
+    <a href="https://img.shields.io/github/license/jrandj/stock-backtester" alt="Python version">
+        <img src="https://img.shields.io/github/license/jrandj/stock-backtester" />
     </a>
 </p>
 
