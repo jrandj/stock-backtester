@@ -6,9 +6,9 @@ path = r"D:\Backups\Trading Project\Historical Data\ASX\Equities"
 hdf_file = r"\data.h5"
 
 # Strategy
-write_results = 1
+write_results = 0
 tickers = ["AJM"]
-required_profit = [1.1, 10, 1]
+required_profit = [1.1, 5, 1]
 required_pct_change_max = [0, 0.05, 0.01]
 required_volume = [3, 8, 1]
 
